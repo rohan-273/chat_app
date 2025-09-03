@@ -35,20 +35,28 @@ function ChatApp({ user, onLogout }) {
 
     const token = localStorage.getItem('token');
     socket.emit('getGroups', { token });
-    socket.emit('user:status', { token });
+    
+    // Request status for all users after connection
+    socket.on('connect', () => {
+      users.forEach(user => {
+        socket.emit('user:status', { userId: user.id, token });
+      });
+    });
 
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
     socket.on('user:status', (statusData) => {
-      console.log('Status data:', statusData);
+      console.log('Full status data:', statusData);
+      console.log('Available keys:', Object.keys(statusData));
       setUsers(prev => {
         const updated = prev.map(u => {
           if (u.id === statusData.userId) {
-            console.log(`Updating user ${u.username}: online=${statusData.isOnline}`);
+            const onlineStatus = statusData.isOnline ?? statusData.online ?? statusData.status ?? false;
+            console.log(`Updating user ${u.username}: online=${onlineStatus}`);
             return {
               ...u, 
-              online: statusData.isOnline, 
-              lastSeen: statusData.lastSeen
+              online: onlineStatus, 
+              lastSeen: statusData.lastSeen ?? statusData.lastSeenAt
             };
           }
           return u;
@@ -100,6 +108,7 @@ function ChatApp({ user, onLogout }) {
     return () => {
       socket.off('usersList');
       socket.off('groupsList');
+      socket.off('connect');
       socket.off('user:status');
       socket.off('groupCreated');
       socket.off('userAddedToGroup');
