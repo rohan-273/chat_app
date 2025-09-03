@@ -18,10 +18,8 @@ function ChatApp({ user, onLogout }) {
         const response = await axios.get(`${import.meta.env.VITE_API_URL}/users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const allRegisteredUsers = response.data.data.filter(u => u.id !== user.id).map(u => ({
-          ...u,
-          online: false
-        }));
+        const allRegisteredUsers = response.data.data.filter(u => u.id !== user.id);
+        console.log('Users from API:', allRegisteredUsers);
         setUsers(allRegisteredUsers);
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -36,24 +34,7 @@ function ChatApp({ user, onLogout }) {
     const token = localStorage.getItem('token');
     socket.emit('getGroups', { token });
     
-    // Request status for all users after connection
-    socket.on('connect', () => {
-      console.log('Socket connected, requesting all user statuses');
-      socket.emit('getAllUserStatuses', { token });
-    });
-    
-    // Listen for all user statuses response
-    socket.on('allUserStatuses', (allStatuses) => {
-      console.log('Received all user statuses:', allStatuses);
-      setUsers(prev => prev.map(u => {
-        const userStatus = allStatuses.find(s => s.userId === u.id);
-        if (userStatus) {
-          console.log(`Setting ${u.username} online status to:`, userStatus.isOnline);
-          return { ...u, online: userStatus.isOnline, lastSeen: userStatus.lastSeen };
-        }
-        return u;
-      }));
-    });
+
 
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
@@ -61,6 +42,7 @@ function ChatApp({ user, onLogout }) {
       console.log('Full status data:', statusData);
       console.log('Available keys:', Object.keys(statusData));
       setUsers(prev => {
+        console.log('Current users before update:', prev.map(u => ({id: u.id, username: u.username, online: u.online})));
         const updated = prev.map(u => {
           if (u.id === statusData.userId) {
             const onlineStatus = statusData.isOnline ?? statusData.online ?? statusData.status ?? false;
@@ -120,8 +102,7 @@ function ChatApp({ user, onLogout }) {
     return () => {
       socket.off('usersList');
       socket.off('groupsList');
-      socket.off('connect');
-      socket.off('allUserStatuses');
+
       socket.off('user:status');
       socket.off('groupCreated');
       socket.off('userAddedToGroup');
