@@ -38,9 +38,21 @@ function ChatApp({ user, onLogout }) {
     
     // Request status for all users after connection
     socket.on('connect', () => {
-      users.forEach(user => {
-        socket.emit('user:status', { userId: user.id, token });
-      });
+      console.log('Socket connected, requesting all user statuses');
+      socket.emit('getAllUserStatuses', { token });
+    });
+    
+    // Listen for all user statuses response
+    socket.on('allUserStatuses', (allStatuses) => {
+      console.log('Received all user statuses:', allStatuses);
+      setUsers(prev => prev.map(u => {
+        const userStatus = allStatuses.find(s => s.userId === u.id);
+        if (userStatus) {
+          console.log(`Setting ${u.username} online status to:`, userStatus.isOnline);
+          return { ...u, online: userStatus.isOnline, lastSeen: userStatus.lastSeen };
+        }
+        return u;
+      }));
     });
 
     socket.on('usersList', setAllUsers);
@@ -109,6 +121,7 @@ function ChatApp({ user, onLogout }) {
       socket.off('usersList');
       socket.off('groupsList');
       socket.off('connect');
+      socket.off('allUserStatuses');
       socket.off('user:status');
       socket.off('groupCreated');
       socket.off('userAddedToGroup');
