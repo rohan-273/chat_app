@@ -8,7 +8,8 @@ function ChatApp({ user, onLogout }) {
   const [users, setUsers] = useState([]); // For personal chats (invited only)
   const [allUsers, setAllUsers] = useState([]); // For group functionality
   const [groups, setGroups] = useState([]);
-  const [messageCounts, setMessageCounts] = useState({}); // Track unread message counts
+  const [messageCounts, setMessageCounts] = useState({});
+  const [allMessages, setAllMessages] = useState([]);
 
   useEffect(() => {
     // Fetch all registered users via API
@@ -96,6 +97,39 @@ function ChatApp({ user, onLogout }) {
         }
       }
     });
+    socket.on("message:receive", (msg) => {
+      console.log('Received message:receive:', msg);
+      setAllMessages(prev => [...prev, msg]);
+      if (msg.sender !== user.id) {
+        const isActiveChat =
+          activeChat?.type === "personal" &&
+          activeChat?.user?.id === msg.sender;
+        if (!isActiveChat) {
+          console.log('Incrementing count for sender:', msg.sender);
+          setMessageCounts((prev) => ({
+            ...prev,
+            [msg.sender]: (prev[msg.sender] || 0) + 1,
+          }));
+        }
+      }
+    });
+    socket.on("message:send", (msg) => {
+      setAllMessages(prev => [...prev, msg]);
+      if (msg.sender !== user.id) {
+        const isActiveChat =
+          activeChat?.type === "personal" &&
+          activeChat?.user?.id === msg.sender;
+        if (!isActiveChat) {
+          setMessageCounts((prev) => ({
+            ...prev,
+            [msg.sender]: (prev[msg.sender] || 0) + 1,
+          }));
+        }
+      }
+    });
+    socket.on("message:sent", (msg) => {
+      setAllMessages(prev => [...prev, msg]);
+    });
 
     return () => {
       socket.off("usersList");
@@ -109,6 +143,8 @@ function ChatApp({ user, onLogout }) {
       socket.off("leftGroup");
 
       socket.off("message:send");
+      socket.off("message:sent");
+      socket.off("message:receive");
     };
   }, [user.socket, user.id, activeChat]);
 
@@ -134,7 +170,7 @@ function ChatApp({ user, onLogout }) {
         onLogout={onLogout}
         messageCounts={messageCounts}
       />
-      <ChatWindow user={user} activeChat={activeChat} users={allUsers} />
+      <ChatWindow user={user} activeChat={activeChat} users={allUsers} allMessages={allMessages} />
     </div>
   );
 }

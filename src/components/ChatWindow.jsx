@@ -8,65 +8,26 @@ const LABELS = {
   SEND: "Send",
 };
 
-function ChatWindow({ user, activeChat, users }) {
+function ChatWindow({ user, activeChat, users, allMessages }) {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
 
   useEffect(() => {
-    setMessages([]);
-    if (!activeChat || !user?.socket) return;
-
-    const socket = user.socket;
-
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      if (activeChat.type === "personal" && activeChat.user?.id) {
-        socket.on("message:send", (msg) => {
-          if (
-            msg?.sender === activeChat.user.id ||
-            msg?.recipient === user.id
-          ) {
-            setMessages((prev) => [...prev, msg]);
-          }
-        });
-        socket.on("message:receive", (msg) => {
-          if (
-            msg?.sender === activeChat.user.id ||
-            msg?.recipient === user.id
-          ) {
-            setMessages((prev) => [...prev, msg]);
-          }
-        });
-        socket.on("message:sent", (msg) => {
-          if (msg?.sender === user.id) {
-            setMessages((prev) => [...prev, msg]);
-          }
-        });
-      } else if (activeChat.type === "group" && activeChat.group?.id) {
-        socket.emit("joinGroup", activeChat.group.id);
-        socket.on("groupMessage", (msg) => {
-          if (msg?.groupId === activeChat.group.id) {
-            setMessages((prev) => [...prev, msg]);
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Socket setup error:", error);
+    if (!activeChat) {
+      setMessages([]);
+      return;
     }
 
-    return () => {
-      try {
-        socket?.off("message:send");
-        socket?.off("message:sent");
-        socket?.off("message:receive");
-        socket?.off("groupMessage");
-      } catch (error) {
-        console.error("Socket cleanup error:", error);
-      }
-    };
-  }, [activeChat, user.socket, user.id]);
+    if (activeChat.type === "personal" && activeChat.user?.id) {
+      const filteredMessages = allMessages.filter(msg => 
+        (msg.sender === activeChat.user.id && msg.recipient === user.id) ||
+        (msg.sender === user.id && msg.recipient === activeChat.user.id)
+      );
+      setMessages(filteredMessages);
+    } else {
+      setMessages([]);
+    }
+  }, [activeChat, allMessages, user.id]);
 
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
