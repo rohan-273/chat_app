@@ -39,16 +39,15 @@ function ChatApp({ user, onLogout }) {
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
     socket.on('user:status', (statusData) => {
-      console.log('Status update:', statusData);
-      setUsers(prev => {
-        const updated = prev.map(u => 
-          u.id === statusData.userId 
-            ? { ...u, online: statusData.isOnline, lastSeen: statusData.lastSeen }
-            : u
-        );
-        console.log('Updated users:', updated);
-        return updated;
-      });
+      setUsers(prev => prev.map(u => 
+        u.id === statusData.userId 
+          ? { 
+              ...u, 
+              online: statusData.isOnline ?? statusData.online ?? false, 
+              lastSeen: statusData.lastSeen ?? statusData.lastSeenAt ?? null 
+            }
+          : u
+      ));
     });
     socket.on('groupCreated', (group) => {
       setGroups(prev => [...prev, group]);
