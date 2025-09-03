@@ -1,38 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
-function Sidebar({ user, users, groups, activeChat, setActiveChat, onLogout, messageCounts }) {
+function Sidebar({
+  user,
+  users,
+  groups,
+  activeChat,
+  setActiveChat,
+  onLogout,
+  messageCounts,
+}) {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [groupName, setGroupName] = useState('');
-
-
+  const [groupName, setGroupName] = useState("");
 
   const createGroup = () => {
     if (groupName.trim() && user.socket) {
-      const token = localStorage.getItem('token');
-      user.socket.emit('createGroup', { groupName, token });
-      setGroupName('');
+      const token = localStorage.getItem("token");
+      user.socket.emit("createGroup", { groupName, token });
+      setGroupName("");
       setShowCreateGroup(false);
     }
   };
-
-
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">{user?.username}</h2>         
-          
+          <h2 className="text-xl font-semibold">{user?.username}</h2>
+
           <button
             onClick={() => {
               if (user.socket) {
-                const token = localStorage.getItem('token');
-                user.socket.emit('logout', { token });
+                const token = localStorage.getItem("token");
+                user.socket.emit("logout", { token });
                 user.socket.disconnect();
               }
-              localStorage.removeItem('token');
-              localStorage.removeItem('username');
-              localStorage.removeItem('userId');
+              localStorage.removeItem("token");
+              localStorage.removeItem("username");
+              localStorage.removeItem("userId");
               onLogout();
             }}
             className="text-red-500 hover:text-red-700"
@@ -47,18 +51,24 @@ function Sidebar({ user, users, groups, activeChat, setActiveChat, onLogout, mes
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold">All Users</h3>
           </div>
-          
-          {users.map(u => (
+
+          {users.map((u) => (
             <div
               key={u.id}
-              onClick={() => setActiveChat({ type: 'personal', user: u })}
+              onClick={() => setActiveChat({ type: "personal", user: u })}
               className={`p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                activeChat?.type === 'personal' && activeChat?.user?.id === u.id ? 'bg-blue-100' : ''
+                activeChat?.type === "personal" && activeChat?.user?.id === u.id
+                  ? "bg-blue-100"
+                  : ""
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-2 ${u.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <div
+                    className={`w-3 h-3 rounded-full mr-2 ${
+                      u.online ? "bg-green-500" : "bg-gray-400"
+                    }`}
+                  ></div>
                   {u.username}
                 </div>
                 {messageCounts[u.id] > 0 && (
@@ -81,7 +91,7 @@ function Sidebar({ user, users, groups, activeChat, setActiveChat, onLogout, mes
               + Create
             </button>
           </div>
-          
+
           {showCreateGroup && (
             <div className="mb-3">
               <input
@@ -108,12 +118,14 @@ function Sidebar({ user, users, groups, activeChat, setActiveChat, onLogout, mes
             </div>
           )}
 
-          {groups.map(g => (
+          {groups.map((g) => (
             <div
               key={g.id}
-              onClick={() => setActiveChat({ type: 'group', group: g })}
+              onClick={() => setActiveChat({ type: "group", group: g })}
               className={`p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                activeChat?.type === 'group' && activeChat?.group?.id === g.id ? 'bg-blue-100' : ''
+                activeChat?.type === "group" && activeChat?.group?.id === g.id
+                  ? "bg-blue-100"
+                  : ""
               }`}
             >
               <div className="flex items-center">
@@ -122,7 +134,9 @@ function Sidebar({ user, users, groups, activeChat, setActiveChat, onLogout, mes
                 </div>
                 <div>
                   <div className="font-medium">{g.name}</div>
-                  <div className="text-xs text-gray-500">{g.members.length} members</div>
+                  <div className="text-xs text-gray-500">
+                    {g.members.length} members
+                  </div>
                 </div>
               </div>
             </div>
