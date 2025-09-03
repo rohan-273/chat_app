@@ -108,7 +108,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
               )}
               <div>{msg.content || msg.message}</div>
               <div className="text-xs opacity-70 mt-1">
-                {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString()}
+                {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </div>
             </div>
           </div>

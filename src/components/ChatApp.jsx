@@ -98,14 +98,12 @@ function ChatApp({ user, onLogout }) {
       }
     });
     socket.on("message:receive", (msg) => {
-      console.log('Received message:receive:', msg);
       setAllMessages(prev => [...prev, msg]);
       if (msg.sender !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
           activeChat?.user?.id === msg.sender;
         if (!isActiveChat) {
-          console.log('Incrementing count for sender:', msg.sender);
           setMessageCounts((prev) => ({
             ...prev,
             [msg.sender]: (prev[msg.sender] || 0) + 1,
