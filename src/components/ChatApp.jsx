@@ -35,19 +35,27 @@ function ChatApp({ user, onLogout }) {
 
     const token = localStorage.getItem('token');
     socket.emit('getGroups', { token });
+    socket.emit('user:status', { token });
 
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
     socket.on('user:status', (statusData) => {
-      setUsers(prev => prev.map(u => 
-        u.id === statusData.userId 
-          ? { 
+      console.log('Status data:', statusData);
+      setUsers(prev => {
+        const updated = prev.map(u => {
+          if (u.id === statusData.userId) {
+            console.log(`Updating user ${u.username}: online=${statusData.isOnline}`);
+            return {
               ...u, 
-              online: statusData.isOnline ?? statusData.online ?? false, 
-              lastSeen: statusData.lastSeen ?? statusData.lastSeenAt ?? null 
-            }
-          : u
-      ));
+              online: statusData.isOnline, 
+              lastSeen: statusData.lastSeen
+            };
+          }
+          return u;
+        });
+        console.log('Users after update:', updated.map(u => ({id: u.id, username: u.username, online: u.online})));
+        return updated;
+      });
     });
     socket.on('groupCreated', (group) => {
       setGroups(prev => [...prev, group]);
