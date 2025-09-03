@@ -19,15 +19,23 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     }
 
     if (activeChat.type === "personal" && activeChat.user?.id) {
-      const filteredMessages = allMessages.filter(msg => 
-        (msg.sender === activeChat.user.id && msg.recipient === user.id) ||
-        (msg.sender === user.id && msg.recipient === activeChat.user.id)
-      );
-      setMessages(filteredMessages);
+      const fetchMessages = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/conversation/${activeChat.user.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await response.json();
+          setMessages(data.data || []);
+        } catch (error) {
+          console.error('Failed to fetch messages:', error);
+        }
+      };
+      fetchMessages();
     } else {
       setMessages([]);
     }
-  }, [activeChat, allMessages, user.id]);
+  }, [activeChat, user.id]);
 
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
