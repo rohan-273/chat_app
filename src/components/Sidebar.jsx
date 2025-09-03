@@ -30,8 +30,6 @@ function Sidebar({
           <button
             onClick={() => {
               if (user.socket) {
-                const token = localStorage.getItem("token");
-                user.socket.emit("logout", { token });
                 user.socket.disconnect();
               }
               localStorage.removeItem("token");

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const LABELS = {
   WELCOME_TITLE: "Welcome to Chat App",
@@ -11,6 +11,7 @@ const LABELS = {
 function ChatWindow({ user, activeChat, users, allMessages }) {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (!activeChat) {
@@ -18,7 +19,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       return;
     }
 
-    if (activeChat.type === "personal" && activeChat.user?.id) {
+    if (activeChat.type === "personal" && activeChat.user?.id && user?.socket) {
       const fetchMessages = async () => {
         try {
           const token = localStorage.getItem('token');
@@ -27,15 +28,48 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           });
           const data = await response.json();
           setMessages(data.data || []);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } catch (error) {
           console.error('Failed to fetch messages:', error);
         }
       };
       fetchMessages();
+
+      const socket = user.socket;
+      socket.on("message:send", (msg) => {
+        if (
+          ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) ||
+          ((msg.sender?.id || msg.sender) === user.id && (msg.recipient?.id || msg.recipient) === activeChat.user.id)
+        ) {
+          setMessages((prev) => [...prev, msg]);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      });
+      socket.on("message:receive", (msg) => {
+        if (
+          ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) ||
+          ((msg.sender?.id || msg.sender) === user.id && (msg.recipient?.id || msg.recipient) === activeChat.user.id)
+        ) {
+          setMessages((prev) => [...prev, msg]);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      });
+      socket.on("message:sent", (msg) => {
+        if ((msg.sender?.id || msg.sender) === user.id && (msg.recipient?.id || msg.recipient) === activeChat.user.id) {
+          setMessages((prev) => [...prev, msg]);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      });
+
+      return () => {
+        socket?.off("message:send");
+        socket?.off("message:receive");
+        socket?.off("message:sent");
+      };
     } else {
       setMessages([]);
     }
-  }, [activeChat, user.id]);
+  }, [activeChat, user.id, user.socket]);
 
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
@@ -101,17 +135,17 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           <div
             key={msg.id || index}
             className={`mb-3 flex ${
-              msg.sender === user.id ? "justify-end" : "justify-start"
+              (msg.sender?.id || msg.sender) === user.id ? "justify-end" : "justify-start"
             }`}
           >
             <div
               className={`max-w-xs px-3 py-2 rounded-lg ${
-                msg.sender === user.id
+                (msg.sender?.id || msg.sender) === user.id
                   ? "bg-blue-500 text-white"
                   : "bg-white border"
               }`}
             >
-              {activeChat.type === "group" && msg.sender !== user.id && (
+              {activeChat.type === "group" && (msg.sender?.id || msg.sender) !== user.id && (
                 <div className="text-xs font-medium mb-1 opacity-70">User</div>
               )}
               <div>{msg.content || msg.message}</div>
@@ -121,6 +155,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="p-4 bg-white border-t">
