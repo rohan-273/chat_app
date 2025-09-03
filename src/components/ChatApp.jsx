@@ -18,7 +18,10 @@ function ChatApp({ user, onLogout }) {
         const response = await axios.get(`${import.meta.env.VITE_API_URL}/users`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const allRegisteredUsers = response.data.data.filter(u => u.id !== user.id);
+        const allRegisteredUsers = response.data.data.filter(u => u.id !== user.id).map(u => ({
+          ...u,
+          online: false
+        }));
         setUsers(allRegisteredUsers);
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -36,16 +39,11 @@ function ChatApp({ user, onLogout }) {
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
     socket.on('user:status', (statusData) => {
-      console.log('Status update:', statusData);
-      setUsers(prev => {
-        const updated = prev.map(u => 
-          u.id === statusData.userId 
-            ? { ...u, online: statusData.isOnline, lastSeen: statusData.lastSeen }
-            : u
-        );
-        console.log('Updated users:', updated);
-        return updated;
-      });
+      setUsers(prev => prev.map(u => 
+        u.id === statusData.userId 
+          ? { ...u, online: statusData.isOnline, lastSeen: statusData.lastSeen }
+          : u
+      ));
     });
     socket.on('groupCreated', (group) => {
       setGroups(prev => [...prev, group]);
