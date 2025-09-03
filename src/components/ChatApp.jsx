@@ -19,7 +19,6 @@ function ChatApp({ user, onLogout }) {
           headers: { Authorization: `Bearer ${token}` }
         });
         const allRegisteredUsers = response.data.data.filter(u => u.id !== user.id);
-        console.log('Users from API:', allRegisteredUsers);
         setUsers(allRegisteredUsers);
       } catch (error) {
         console.error('Failed to fetch users:', error);
@@ -39,25 +38,15 @@ function ChatApp({ user, onLogout }) {
     socket.on('usersList', setAllUsers);
     socket.on('groupsList', setGroups);
     socket.on('user:status', (statusData) => {
-      console.log('Full status data:', statusData);
-      console.log('Available keys:', Object.keys(statusData));
-      setUsers(prev => {
-        console.log('Current users before update:', prev.map(u => ({id: u.id, username: u.username, online: u.online})));
-        const updated = prev.map(u => {
-          if (u.id === statusData.userId) {
-            const onlineStatus = statusData.isOnline ?? statusData.online ?? statusData.status ?? false;
-            console.log(`Updating user ${u.username}: online=${onlineStatus}`);
-            return {
+      setUsers(prev => prev.map(u => 
+        u.id === statusData.userId 
+          ? {
               ...u, 
-              online: onlineStatus, 
+              online: statusData.isOnline ?? statusData.online ?? statusData.status ?? false, 
               lastSeen: statusData.lastSeen ?? statusData.lastSeenAt
-            };
-          }
-          return u;
-        });
-        console.log('Users after update:', updated.map(u => ({id: u.id, username: u.username, online: u.online})));
-        return updated;
-      });
+            }
+          : u
+      ));
     });
     socket.on('groupCreated', (group) => {
       setGroups(prev => [...prev, group]);
