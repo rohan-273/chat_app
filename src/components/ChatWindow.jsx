@@ -70,9 +70,19 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         socket?.off("message:sent");
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
+      console.log('Setting up group chat for:', activeChat.group.id);
       setMessages([]);
+      
       const socket = user.socket;
-      socket.on("group:message", (msg) => {
+      socket.on("group:send", (msg) => {
+        console.log('ChatWindow received group:send:', msg);
+        if (msg?.groupId === activeChat.group.id) {
+          setMessages((prev) => [...prev, msg]);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      });
+      socket.on("group:receive", (msg) => {
+        console.log('ChatWindow received group:receive:', msg);
         if (msg?.groupId === activeChat.group.id) {
           setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -80,12 +90,13 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       });
 
       return () => {
-        socket?.off("group:message");
+        socket?.off("group:send");
+        socket?.off("group:receive");
       };
     } else {
       setMessages([]);
     }
-  }, [activeChat, user.id, user.socket]);
+  }, [activeChat, allMessages, user.id]);
 
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
@@ -106,7 +117,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           type: "text",
         });
       } else if (activeChat.type === "group" && activeChat.group?.id) {
-        user.socket.emit("group:message", {
+        user.socket.emit("group:send", {
           groupId: activeChat.group.id,
           content: messageInput,
           type: "text"

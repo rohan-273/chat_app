@@ -151,6 +151,14 @@ function ChatApp({ user, onLogout }) {
     socket.on("message:sent", (msg) => {
       setAllMessages(prev => [...prev, msg]);
     });
+    socket.on("group:send", (msg) => {
+      console.log('Received group:send:', msg);
+      setAllMessages(prev => [...prev, msg]);
+    });
+    socket.on("group:receive", (msg) => {
+      console.log('Received group:receive:', msg);
+      setAllMessages(prev => [...prev, msg]);
+    });
 
     return () => {
       socket.off("usersList");
@@ -164,6 +172,8 @@ function ChatApp({ user, onLogout }) {
       socket.off("message:send");
       socket.off("message:sent");
       socket.off("message:receive");
+      socket.off("group:send");
+      socket.off("group:receive");
     };
   }, [user.socket, user.id, activeChat]);
 
@@ -189,7 +199,7 @@ function ChatApp({ user, onLogout }) {
         onLogout={onLogout}
         messageCounts={messageCounts}
       />
-      <ChatWindow user={user} activeChat={activeChat} users={allUsers} allMessages={allMessages} />
+      <ChatWindow user={user} activeChat={activeChat} users={users} allMessages={allMessages} />
     </div>
   );
 }
