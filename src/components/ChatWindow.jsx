@@ -142,9 +142,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     );
   }
 
-  const isGroupCreator =
-    activeChat.type === "group" && activeChat.group.creator === user.id;
-
   return (
     <div className="flex-1 flex flex-col">
       <div className="border-b border-gray-200 bg-white">
@@ -207,7 +204,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
               const token = localStorage.getItem('token');
               user.socket.emit('group:addMembers', {
                 groupId,
-                members: selectedUsers,
+                newMembers: selectedUsers,
                 token
               });
             }

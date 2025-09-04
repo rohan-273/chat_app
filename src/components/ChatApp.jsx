@@ -99,9 +99,22 @@ function ChatApp({ user, onLogout }) {
           }
         );
         setGroups(response.data.data.groups || []);
+        
+        // Update activeChat if it's the same group
+        if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
+          const updatedGroup = response.data.data.groups.find(g => g.id === group.id);
+          if (updatedGroup) {
+            setActiveChat({ type: "group", group: updatedGroup });
+          }
+        }
       } catch (error) {
         console.error("Failed to fetch updated groups:", error);
         setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
+        
+        // Update activeChat with fallback data
+        if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
+          setActiveChat({ type: "group", group });
+        }
       }
     });
 
