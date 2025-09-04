@@ -63,11 +63,27 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       });
+      socket.on("message:delivered", (msg) => {
+        setMessages((prev) => 
+          prev.map(m => 
+            m.id === msg.id ? { ...m, status: 'delivered' } : m
+          )
+        );
+      });
+      socket.on("message:read", (msg) => {
+        setMessages((prev) => 
+          prev.map(m => 
+            m.id === msg.id ? { ...m, status: 'read' } : m
+          )
+        );
+      });
 
       return () => {
         socket?.off("message:send");
         socket?.off("message:receive");
         socket?.off("message:sent");
+        socket?.off("message:delivered");
+        socket?.off("message:read");
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
       const fetchGroupMessages = async () => {
@@ -202,14 +218,14 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
                 <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 {activeChat.type === "personal" && (msg.sender?.id || msg.sender) === user.id && (
                   <div className="ml-2">
-                    {msg.status === 'sent' && (
+                    {(!msg.status || msg.status === 'sent') && (
                       <span className="text-white">✓</span>
                     )}
                     {msg.status === 'delivered' && (
                       <span className="text-white">✓✓</span>
                     )}
                     {msg.status === 'read' && (
-                      <span className="text-blue-300">✓✓</span>
+                      <span className="text-blue-400">✓✓</span>
                     )}
                   </div>
                 )}
