@@ -22,11 +22,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       return;
     }
 
-    // Emit read status for all messages when chat is opened
-    if (activeChat.type === "personal" && user?.socket) {
-      user.socket.emit('message:read', { userId: activeChat.user.id });
-    }
-
     if (activeChat.type === "personal" && activeChat.user?.id && user?.socket) {
       const fetchMessages = async () => {
         try {
@@ -35,7 +30,16 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
-          setMessages(data.data || []);
+          const messages = data.data || [];
+          
+          // Emit read status for each message from the other user
+          messages.forEach(msg => {
+            if ((msg.sender?.id || msg.sender) === activeChat.user.id) {
+              user.socket.emit('message:read', { messageId: msg._id });
+            }
+          });
+          
+          setMessages(messages);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } catch (error) {
           console.error('Failed to fetch messages:', error);
@@ -63,7 +67,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           
           // Emit delivered status if message is for current user
           if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
-            socket.emit('message:delivered', { messageId: msg.id });
+            socket.emit('message:delivered', { messageId: msg._id });
           }
         }
       });
