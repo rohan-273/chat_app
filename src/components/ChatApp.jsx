@@ -33,8 +33,25 @@ function ChatApp({ user, onLogout }) {
 
     fetchUsers();
 
+    const fetchUserGroups = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setGroups(response.data.data.groups || []);
+      } catch (error) {
+        console.error("Failed to fetch user groups:", error);
+      }
+    };
+
+    fetchUserGroups();
+
     const socket = user.socket;
-    if (!socket) return; // Skip if no socket (token-only user)
+    if (!socket) return;
 
     const token = localStorage.getItem("token");
     socket.emit("getGroups", { token });
@@ -58,20 +75,26 @@ function ChatApp({ user, onLogout }) {
         )
       );
     });
-    socket.on("groupCreated", (group) => {
-      setGroups((prev) => [...prev, group]);
-    });
-    socket.on("userAddedToGroup", ({ group }) => {
-      setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
-    });
-    socket.on("addedToGroup", (group) => {
-      setGroups((prev) => {
-        const exists = prev.find((g) => g.id === group.id);
-        if (!exists) {
-          return [...prev, group];
-        }
-        return prev;
-      });
+    socket.on("group:created", async (group) => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setGroups(response.data.data.groups || []);
+      } catch (error) {
+        console.error("Failed to fetch updated groups:", error);
+        setGroups((prev) => {
+          const exists = prev.find((g) => g.id === group.id);
+          if (!exists) {
+            return [...prev, group];
+          }
+          return prev.map((g) => (g.id === group.id ? group : g));
+        });
+      }
     });
     socket.on("groupUpdated", (group) => {
       setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
@@ -134,9 +157,7 @@ function ChatApp({ user, onLogout }) {
       socket.off("groupsList");
 
       socket.off("user:status");
-      socket.off("groupCreated");
-      socket.off("userAddedToGroup");
-      socket.off("addedToGroup");
+      socket.off("group:created");
       socket.off("groupUpdated");
       socket.off("leftGroup");
 

@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import GroupInfoPopup from './GroupInfoPopup';
+import { decryptMessage } from '../utils/encryption';
 
 const LABELS = {
   WELCOME_TITLE: "Welcome to Chat App",
@@ -11,6 +13,7 @@ const LABELS = {
 function ChatWindow({ user, activeChat, users, allMessages }) {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -66,6 +69,19 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         socket?.off("message:receive");
         socket?.off("message:sent");
       };
+    } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
+      setMessages([]);
+      const socket = user.socket;
+      socket.on("group:message", (msg) => {
+        if (msg?.groupId === activeChat.group.id) {
+          setMessages((prev) => [...prev, msg]);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      });
+
+      return () => {
+        socket?.off("group:message");
+      };
     } else {
       setMessages([]);
     }
@@ -90,10 +106,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           type: "text",
         });
       } else if (activeChat.type === "group" && activeChat.group?.id) {
-        user.socket.emit("groupMessage", {
+        user.socket.emit("group:message", {
           groupId: activeChat.group.id,
-          message: messageInput,
-          token,
+          content: messageInput,
+          type: "text"
         });
       }
       setMessageInput("");
@@ -124,7 +140,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             <h3 className="font-semibold">{activeChat.user.username}</h3>
           </div>
         ) : (
-          <div className="p-4">
+          <div 
+            className="p-4 cursor-pointer hover:bg-gray-50"
+            onClick={() => setShowGroupInfo(true)}
+          >
             <h3 className="font-semibold">{activeChat.group.name}</h3>
           </div>
         )}
@@ -148,7 +167,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
               {activeChat.type === "group" && (msg.sender?.id || msg.sender) !== user.id && (
                 <div className="text-xs font-medium mb-1 opacity-70">User</div>
               )}
-              <div>{msg.content || msg.message}</div>
+              <div>{decryptMessage(msg.content || msg.message)}</div>
               <div className="text-xs opacity-70 mt-1">
                 {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
               </div>
@@ -157,6 +176,25 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         ))}
         <div ref={messagesEndRef} />
       </div>
+
+      {showGroupInfo && activeChat.type === 'group' && (
+        <GroupInfoPopup
+          group={activeChat.group}
+          user={user}
+          users={users}
+          onClose={() => setShowGroupInfo(false)}
+          onAddUsers={(groupId, selectedUsers) => {
+            if (user.socket) {
+              const token = localStorage.getItem('token');
+              user.socket.emit('group:addMembers', {
+                groupId,
+                members: selectedUsers,
+                token
+              });
+            }
+          }}
+        />
+      )}
 
       <div className="p-4 bg-white border-t">
         <div className="flex gap-2">

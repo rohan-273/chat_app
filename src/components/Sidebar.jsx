@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import CreateGroupPopup from './CreateGroupPopup';
 
 function Sidebar({
   user,
@@ -10,14 +11,15 @@ function Sidebar({
   messageCounts,
 }) {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [groupName, setGroupName] = useState("");
 
-  const createGroup = () => {
-    if (groupName.trim() && user.socket) {
+  const handleCreateGroup = (groupName, selectedUsers) => {
+    if (user.socket) {
       const token = localStorage.getItem("token");
-      user.socket.emit("createGroup", { groupName, token });
-      setGroupName("");
-      setShowCreateGroup(false);
+      user.socket.emit("group:create", { 
+        name: groupName, 
+        members: selectedUsers,
+        token 
+      });
     }
   };
 
@@ -91,29 +93,11 @@ function Sidebar({
           </div>
 
           {showCreateGroup && (
-            <div className="mb-3">
-              <input
-                type="text"
-                placeholder="Group name"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                className="w-full p-2 border rounded text-sm"
-              />
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={createGroup}
-                  className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => setShowCreateGroup(false)}
-                  className="px-3 py-1 bg-gray-300 rounded text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <CreateGroupPopup
+              users={users}
+              onClose={() => setShowCreateGroup(false)}
+              onCreateGroup={handleCreateGroup}
+            />
           )}
 
           {groups.map((g) => (
