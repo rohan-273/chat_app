@@ -32,9 +32,9 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           const data = await response.json();
           const messages = data.data || [];
           
-          // Emit read status for each message from the other user
+          // Emit read status only for unread messages from the other user
           messages.forEach(msg => {
-            if ((msg.sender?.id || msg.sender) === activeChat.user.id) {
+            if ((msg.sender?.id || msg.sender) === activeChat.user.id && msg.status !== 'read') {
               user.socket.emit('message:read', { messageId: msg._id });
             }
           });
