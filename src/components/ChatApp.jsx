@@ -52,12 +52,6 @@ function ChatApp({ user, onLogout }) {
 
     const socket = user.socket;
     if (!socket) return;
-
-    const token = localStorage.getItem("token");
-    socket.emit("getGroups", { token });
-
-    socket.on("usersList", setAllUsers);
-    socket.on("groupsList", setGroups);
     socket.on("user:status", (statusData) => {
       setUsers((prev) =>
         prev.map((u) =>
@@ -161,8 +155,7 @@ function ChatApp({ user, onLogout }) {
     });
 
     return () => {
-      socket.off("usersList");
-      socket.off("groupsList");
+
 
       socket.off("user:status");
       socket.off("group:created");

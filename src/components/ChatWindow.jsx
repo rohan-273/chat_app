@@ -74,18 +74,41 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       setMessages([]);
       
       const socket = user.socket;
+      socket.emit('joinGroup', activeChat.group.id);
       socket.on("group:send", (msg) => {
         console.log('ChatWindow received group:send:', msg);
+        console.log('Message groupId:', msg?.groupId);
+        console.log('Active group id:', activeChat.group.id);
+        console.log('IDs match:', msg?.groupId === activeChat.group.id);
         if (msg?.groupId === activeChat.group.id) {
-          setMessages((prev) => [...prev, msg]);
+          console.log('Adding message to chat');
+          setMessages((prev) => {
+            console.log('Previous messages:', prev);
+            const newMessages = [...prev, msg];
+            console.log('New messages:', newMessages);
+            return newMessages;
+          });
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        } else {
+          console.log('Message not for this group');
         }
       });
       socket.on("group:receive", (msg) => {
         console.log('ChatWindow received group:receive:', msg);
+        console.log('Message groupId:', msg?.groupId);
+        console.log('Active group id:', activeChat.group.id);
+        console.log('IDs match:', msg?.groupId === activeChat.group.id);
         if (msg?.groupId === activeChat.group.id) {
-          setMessages((prev) => [...prev, msg]);
+          console.log('Adding received message to chat');
+          setMessages((prev) => {
+            console.log('Previous messages:', prev);
+            const newMessages = [...prev, msg];
+            console.log('New messages:', newMessages);
+            return newMessages;
+          });
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        } else {
+          console.log('Received message not for this group');
         }
       });
 
