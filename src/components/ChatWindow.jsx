@@ -184,7 +184,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             <div
               className={`max-w-xs px-3 py-2 rounded-lg ${
                 (msg.sender?.id || msg.sender) === user.id
-                  ? "bg-blue-500 text-white"
+                  ? "bg-green-500 text-white"
                   : "bg-white border"
               }`}
             >
@@ -198,8 +198,21 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
                 </div>
               )}
               <div>{decryptMessage(msg.content || msg.message)}</div>
-              <div className="text-xs opacity-70 mt-1">
-                {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
+                <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                {activeChat.type === "personal" && (msg.sender?.id || msg.sender) === user.id && (
+                  <div className="ml-2">
+                    {msg.status === 'sent' && (
+                      <span className="text-white">✓</span>
+                    )}
+                    {msg.status === 'delivered' && (
+                      <span className="text-white">✓✓</span>
+                    )}
+                    {msg.status === 'read' && (
+                      <span className="text-blue-300">✓✓</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

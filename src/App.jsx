@@ -5,6 +5,7 @@ import ChatApp from './components/ChatApp';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -24,9 +25,27 @@ function App() {
           socket,
           isTokenUser: true 
         });
+        setIsLoading(false);
       });
+      
+      socket.on('connect_error', () => {
+        setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
     }
   }, []);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-gray-100">
