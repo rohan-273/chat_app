@@ -70,10 +70,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         socket?.off("message:sent");
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
-      console.log('Setting up group chat for:', activeChat.group.id);
       setMessages([]);
       
       const socket = user.socket;
+      socket.emit('joinGroup', activeChat.group.id);
     
       // For sender acknowledgement
       socket.on("group:sent", (msg) => {
@@ -178,7 +178,13 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
               }`}
             >
               {activeChat.type === "group" && (msg.sender?.id || msg.sender) !== user.id && (
-                <div className="text-xs font-medium mb-1 opacity-70">User</div>
+                <div className="text-xs font-medium mb-1 opacity-70">
+                  {(() => {
+                    const senderId = msg.sender?.id || msg.sender;
+                    const senderUser = users.find(u => u.id === senderId);
+                    return senderUser?.username || senderUser?.email || 'Unknown User';
+                  })()} 
+                </div>
               )}
               <div>{decryptMessage(msg.content || msg.message)}</div>
               <div className="text-xs opacity-70 mt-1">

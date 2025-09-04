@@ -5,8 +5,7 @@ import ChatWindow from "./ChatWindow";
 
 function ChatApp({ user, onLogout }) {
   const [activeChat, setActiveChat] = useState(null);
-  const [users, setUsers] = useState([]); // For personal chats (invited only)
-  const [allUsers, setAllUsers] = useState([]); // For group functionality
+  const [users, setUsers] = useState([]); // For personal chats (invited only)  
   const [groups, setGroups] = useState([]);
   const [messageCounts, setMessageCounts] = useState({});
   const [allMessages, setAllMessages] = useState([]);
@@ -90,15 +89,6 @@ function ChatApp({ user, onLogout }) {
         });
       }
     });
-    socket.on("groupUpdated", (group) => {
-      setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
-    });
-    socket.on("leftGroup", (groupId) => {
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      if (activeChat?.type === "group" && activeChat?.group?.id === groupId) {
-        setActiveChat(null);
-      }
-    });
 
     // Listen for personal messages to count unread messages
     socket.on("message:send", (msg) => {
@@ -146,21 +136,16 @@ function ChatApp({ user, onLogout }) {
       setAllMessages(prev => [...prev, msg]);
     });
     socket.on("group:send", (msg) => {
-      console.log('Received group:send:', msg);
       setAllMessages(prev => [...prev, msg]);
     });
     socket.on("group:receive", (msg) => {
-      console.log('Received group:receive:', msg);
       setAllMessages(prev => [...prev, msg]);
     });
 
     return () => {
-
-
       socket.off("user:status");
       socket.off("group:created");
-      socket.off("groupUpdated");
-      socket.off("leftGroup");
+
 
       socket.off("message:send");
       socket.off("message:sent");
