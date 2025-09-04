@@ -89,6 +89,21 @@ function ChatApp({ user, onLogout }) {
         });
       }
     });
+    socket.on("group:membersUpdated", async (group) => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setGroups(response.data.data.groups || []);
+      } catch (error) {
+        console.error("Failed to fetch updated groups:", error);
+        setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
+      }
+    });
 
     // Listen for personal messages to count unread messages
     socket.on("message:send", (msg) => {
@@ -145,6 +160,7 @@ function ChatApp({ user, onLogout }) {
     return () => {
       socket.off("user:status");
       socket.off("group:created");
+      socket.off("group:membersUpdated");
 
 
       socket.off("message:send");
