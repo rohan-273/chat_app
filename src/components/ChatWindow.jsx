@@ -70,8 +70,22 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         socket?.off("message:sent");
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
-      setMessages([]);
-      
+      const fetchGroupMessages = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await response.json();
+          setMessages(data.data || []);
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        } catch (error) {
+          console.error('Failed to fetch group messages:', error);
+          setMessages([]);
+        }
+      };
+      fetchGroupMessages();
+
       const socket = user.socket;
       socket.emit('joinGroup', activeChat.group.id);
     
