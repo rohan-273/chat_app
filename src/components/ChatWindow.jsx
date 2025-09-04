@@ -22,6 +22,11 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       return;
     }
 
+    // Emit read status for all messages when chat is opened
+    if (activeChat.type === "personal" && user?.socket) {
+      user.socket.emit('message:read', { userId: activeChat.user.id });
+    }
+
     if (activeChat.type === "personal" && activeChat.user?.id && user?.socket) {
       const fetchMessages = async () => {
         try {
@@ -55,6 +60,11 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         ) {
           setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+          
+          // Emit delivered status if message is for current user
+          if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
+            socket.emit('message:delivered', { messageId: msg.id });
+          }
         }
       });
       socket.on("message:sent", (msg) => {
@@ -63,27 +73,13 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       });
-      socket.on("message:delivered", (msg) => {
-        setMessages((prev) => 
-          prev.map(m => 
-            m.id === msg.id ? { ...m, status: 'delivered' } : m
-          )
-        );
-      });
-      socket.on("message:read", (msg) => {
-        setMessages((prev) => 
-          prev.map(m => 
-            m.id === msg.id ? { ...m, status: 'read' } : m
-          )
-        );
-      });
+
 
       return () => {
         socket?.off("message:send");
         socket?.off("message:receive");
         socket?.off("message:sent");
-        socket?.off("message:delivered");
-        socket?.off("message:read");
+
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
       const fetchGroupMessages = async () => {
