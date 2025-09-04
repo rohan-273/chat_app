@@ -74,48 +74,27 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       setMessages([]);
       
       const socket = user.socket;
-      socket.emit('joinGroup', activeChat.group.id);
-      socket.on("group:send", (msg) => {
-        console.log('ChatWindow received group:send:', msg);
-        console.log('Message group:', msg?.group);
-        console.log('Active group id:', activeChat.group.id);
-        console.log('Group match:', msg?.group === activeChat.group.id);
-        if (msg?.group === activeChat.group.id) {
-          console.log('Adding message to chat');
-          setMessages((prev) => {
-            console.log('Previous messages:', prev);
-            const newMessages = [...prev, msg];
-            console.log('New messages:', newMessages);
-            return newMessages;
-          });
+    
+      // For sender acknowledgement
+      socket.on("group:sent", (msg) => {
+        if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) === user.id) {
+          setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        } else {
-          console.log('Message not for this group');
         }
       });
+    
+      // For receiving from others
       socket.on("group:receive", (msg) => {
-        console.log('ChatWindow received group:receive:', msg);
-        console.log('Message group:', msg?.group);
-        console.log('Active group id:', activeChat.group.id);
-        console.log('Group match:', msg?.group === activeChat.group.id);
-        if (msg?.group === activeChat.group.id) {
-          console.log('Adding received message to chat');
-          setMessages((prev) => {
-            console.log('Previous messages:', prev);
-            const newMessages = [...prev, msg];
-            console.log('New messages:', newMessages);
-            return newMessages;
-          });
+        if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) !== user.id) {
+          setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        } else {
-          console.log('Received message not for this group');
         }
       });
-
+    
       return () => {
-        socket?.off("group:send");
+        socket?.off("group:sent");
         socket?.off("group:receive");
-      };
+      };    
     } else {
       setMessages([]);
     }
