@@ -77,10 +77,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       socket.emit('joinGroup', activeChat.group.id);
       socket.on("group:send", (msg) => {
         console.log('ChatWindow received group:send:', msg);
-        console.log('Message groupId:', msg?.groupId);
+        console.log('Message group:', msg?.group);
         console.log('Active group id:', activeChat.group.id);
-        console.log('IDs match:', msg?.groupId === activeChat.group.id);
-        if (msg?.groupId === activeChat.group.id) {
+        console.log('Group match:', msg?.group === activeChat.group.id);
+        if (msg?.group === activeChat.group.id) {
           console.log('Adding message to chat');
           setMessages((prev) => {
             console.log('Previous messages:', prev);
@@ -95,10 +95,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       });
       socket.on("group:receive", (msg) => {
         console.log('ChatWindow received group:receive:', msg);
-        console.log('Message groupId:', msg?.groupId);
+        console.log('Message group:', msg?.group);
         console.log('Active group id:', activeChat.group.id);
-        console.log('IDs match:', msg?.groupId === activeChat.group.id);
-        if (msg?.groupId === activeChat.group.id) {
+        console.log('Group match:', msg?.group === activeChat.group.id);
+        if (msg?.group === activeChat.group.id) {
           console.log('Adding received message to chat');
           setMessages((prev) => {
             console.log('Previous messages:', prev);
