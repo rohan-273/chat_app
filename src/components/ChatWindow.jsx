@@ -14,7 +14,22 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState("");
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const messagesEndRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeChat) {
@@ -208,11 +223,44 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             <h3 className="font-semibold">{activeChat.user.username}</h3>
           </div>
         ) : (
-          <div 
-            className="p-4 cursor-pointer hover:bg-gray-50"
-            onClick={() => setShowGroupInfo(true)}
-          >
+          <div className="p-4 flex justify-between items-center">
             <h3 className="font-semibold">{activeChat.group.name}</h3>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="text-gray-500 hover:text-gray-700 p-2 text-lg font-bold"
+              >
+                ⋮
+              </button>
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      setShowGroupInfo(true);
+                    }}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Group Info
+                  </button>
+                  {activeChat.group.createdBy !== user.id && (
+                    <button
+                      onClick={() => {
+                        if (user.socket) {
+                          user.socket.emit('group:exit', {
+                            groupId: activeChat.group.id
+                          });
+                        }
+                        setShowDropdown(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                    >
+                      Leave Group
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -128,6 +128,28 @@ function ChatApp({ user, onLogout }) {
         setActiveChat(null);
       }
     });
+    socket.on("group:memberLeft", async (data) => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setGroups(response.data.data.groups || []);
+        
+        // Update activeChat if it's the same group
+        if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
+          const updatedGroup = response.data.data.groups.find(g => g.id === data.groupId);
+          if (updatedGroup) {
+            setActiveChat({ type: "group", group: updatedGroup });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch updated groups:", error);
+      }
+    });
     socket.on("group:membersUpdated", async (group) => {
       try {
         const token = localStorage.getItem("token");
@@ -234,6 +256,7 @@ function ChatApp({ user, onLogout }) {
       socket.off("group:deleted");
       socket.off("group:memberRemoved");
       socket.off("group:removed");
+      socket.off("group:memberLeft");
       socket.off("group:membersUpdated");
       socket.off("message:send");
       socket.off("message:sent");
