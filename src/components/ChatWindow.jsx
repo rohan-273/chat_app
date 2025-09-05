@@ -77,13 +77,19 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       });
-
+      socket.on("message:status", (data) => {
+        setMessages((prev) => 
+          prev.map(msg => 
+            msg._id === data.messageId ? { ...msg, status: data.status } : msg
+          )
+        );
+      });
 
       return () => {
         socket?.off("message:send");
         socket?.off("message:receive");
         socket?.off("message:sent");
-
+        socket?.off("message:status");
       };
     } else if (activeChat.type === "group" && activeChat.group?.id && user?.socket) {
       const fetchGroupMessages = async () => {
@@ -93,7 +99,16 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
-          setMessages(data.data || []);
+          const messages = data.data || [];
+          
+          // Emit read status for unread group messages
+          messages.forEach(msg => {
+            if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
+              user.socket.emit('group:message:read', { messageId: msg._id });
+            }
+          });
+          
+          setMessages(messages);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } catch (error) {
           console.error('Failed to fetch group messages:', error);
@@ -118,12 +133,33 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) !== user.id) {
           setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+          
+          // Emit delivered status for group message
+          if (msg._id) {
+            socket.emit('group:message:delivered', { messageId: msg._id });
+          }
         }
+      });
+      socket.on("group:message:status", (data) => {
+        setMessages((prev) => 
+          prev.map(msg => 
+            msg._id === data.messageId ? { ...msg, status: data.status } : msg
+          )
+        );
+      });
+      socket.on("group:message:read", (data) => {
+        setMessages((prev) => 
+          prev.map(msg => 
+            msg._id === data.messageId ? { ...msg, status: 'read' } : msg
+          )
+        );
       });
     
       return () => {
         socket?.off("group:sent");
         socket?.off("group:receive");
+        socket?.off("group:message:status");
+        socket?.off("group:message:read");
       };    
     } else {
       setMessages([]);
