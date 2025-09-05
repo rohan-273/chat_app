@@ -228,7 +228,17 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           </div>
         ) : (
           <div className="p-4 flex justify-between items-center">
-            <h3 className="font-semibold">{activeChat.group.name}</h3>
+            <div>
+              <h3 className="font-semibold">{activeChat.group.name}</h3>
+              <p className="text-sm text-gray-500">
+                {activeChat.group.members
+                  .sort((a, b) => a.id === user.id ? -1 : b.id === user.id ? 1 : 0)
+                  .map(member => {
+                    const name = member.username || member.email;
+                    return member.id === user.id ? `${name} (You)` : name;
+                  }).join(', ')}
+              </p>
+            </div>
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
@@ -247,7 +257,19 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
                   >
                     Group Info
                   </button>
-                  {activeChat.group.createdBy !== user.id && (
+                  {activeChat.group.createdBy === user.id ? (
+                    <button
+                      onClick={() => {
+                        if (user.socket) {
+                          user.socket.emit('group:delete', { groupId: activeChat.group.id });
+                        }
+                        setShowDropdown(false);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                    >
+                      Delete Group
+                    </button>
+                  ) : (
                     <button
                       onClick={() => {
                         if (user.socket) {
