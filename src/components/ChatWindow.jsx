@@ -32,6 +32,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   }, []);
 
   useEffect(() => {
+    setMessageInput("");
+  }, [activeChat]);
+
+  useEffect(() => {
     if (!activeChat) {
       setMessages([]);
       return;
