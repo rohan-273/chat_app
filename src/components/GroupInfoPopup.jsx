@@ -31,12 +31,29 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
           {group.members.map(member => {
             const displayName = member.username || member.email || 'Unknown User';
             return (
-              <div key={member.id} className="flex items-center mb-2">
-                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
-                  {displayName.charAt(0).toUpperCase()}
+              <div key={member.id} className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                  <span>{displayName}</span>
+                  {member.id === group.createdBy && <span className="ml-2 text-xs text-blue-500">(Owner)</span>}
                 </div>
-                <span>{displayName}</span>
-                {member.id === group.createdBy && <span className="ml-2 text-xs text-blue-500">(Owner)</span>}
+                {isOwner && member.id !== group.createdBy && (
+                  <button
+                    onClick={() => {
+                      if (user.socket) {
+                        user.socket.emit('group:removeMember', {
+                          groupId: group.id,
+                          userId: member.id
+                        });
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             );
           })}
