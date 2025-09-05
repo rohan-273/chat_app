@@ -19,7 +19,7 @@ function App() {
       
       socket.on('connect', () => {
         // Emit message:fetch to get unread messages info
-        socket.emit('message:fetch', { userId });
+        socket.emit('message:fetch', { userId: userId });
         
         setUser({ 
           token, 

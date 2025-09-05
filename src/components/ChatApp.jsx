@@ -8,6 +8,7 @@ function ChatApp({ user, onLogout }) {
   const [users, setUsers] = useState([]); // For personal chats (invited only)  
   const [groups, setGroups] = useState([]);
   const [messageCounts, setMessageCounts] = useState({});
+  const [groupMessageCounts, setGroupMessageCounts] = useState({});
   const [allMessages, setAllMessages] = useState([]);
 
   useEffect(() => {
@@ -134,28 +135,30 @@ function ChatApp({ user, onLogout }) {
     });
     socket.on("message:receive", (msg) => {
       setAllMessages(prev => [...prev, msg]);
-      if (msg.sender !== user.id) {
+      const senderId = msg.sender?.id || msg.sender;
+      if (senderId !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
-          activeChat?.user?.id === msg.sender;
+          activeChat?.user?.id === senderId;
         if (!isActiveChat) {
           setMessageCounts((prev) => ({
             ...prev,
-            [msg.sender]: (prev[msg.sender] || 0) + 1,
+            [senderId]: (prev[senderId] || 0) + 1,
           }));
         }
       }
     });
     socket.on("message:send", (msg) => {
       setAllMessages(prev => [...prev, msg]);
-      if (msg.sender !== user.id) {
+      const senderId = msg.sender?.id || msg.sender;
+      if (senderId !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
-          activeChat?.user?.id === msg.sender;
+          activeChat?.user?.id === senderId;
         if (!isActiveChat) {
           setMessageCounts((prev) => ({
             ...prev,
-            [msg.sender]: (prev[msg.sender] || 0) + 1,
+            [senderId]: (prev[senderId] || 0) + 1,
           }));
         }
       }
@@ -167,7 +170,23 @@ function ChatApp({ user, onLogout }) {
       setAllMessages(prev => [...prev, msg]);
     });
     socket.on("group:receive", (msg) => {
+      console.log('Group receive for counting:', msg);
       setAllMessages(prev => [...prev, msg]);
+      const senderId = msg.sender?.id || msg.sender;
+      console.log('Sender ID:', senderId, 'User ID:', user.id, 'Group:', msg.group);
+      if (senderId !== user.id && msg.group) {
+        const isActiveChat =
+          activeChat?.type === "group" &&
+          activeChat?.group?.id === msg.group;
+        console.log('Is active chat:', isActiveChat);
+        if (!isActiveChat) {
+          console.log('Incrementing group count for:', msg.group);
+          setGroupMessageCounts((prev) => ({
+            ...prev,
+            [msg.group]: (prev[msg.group] || 0) + 1,
+          }));
+        }
+      }
     });
 
     return () => {
@@ -192,6 +211,11 @@ function ChatApp({ user, onLogout }) {
         ...prev,
         [chat.user.id]: 0,
       }));
+    } else if (chat?.type === "group") {
+      setGroupMessageCounts((prev) => ({
+        ...prev,
+        [chat.group.id]: 0,
+      }));
     }
   };
 
@@ -205,6 +229,7 @@ function ChatApp({ user, onLogout }) {
         setActiveChat={handleSetActiveChat}
         onLogout={onLogout}
         messageCounts={messageCounts}
+        groupMessageCounts={groupMessageCounts}
       />
       <ChatWindow user={user} activeChat={activeChat} users={users} allMessages={allMessages} />
     </div>

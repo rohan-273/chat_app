@@ -9,6 +9,7 @@ function Sidebar({
   setActiveChat,
   onLogout,
   messageCounts,
+  groupMessageCounts,
 }) {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
@@ -110,16 +111,23 @@ function Sidebar({
                   : ""
               }`}
             >
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
-                  {g.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div className="font-medium">{g.name}</div>
-                  <div className="text-xs text-gray-500">
-                    {g.members.length} members
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                    {g.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium">{g.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {g.members.length} members
+                    </div>
                   </div>
                 </div>
+                {groupMessageCounts[g.id] > 0 && (
+                  <div className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                    {groupMessageCounts[g.id]}
+                  </div>
+                )}
               </div>
             </div>
           ))}
