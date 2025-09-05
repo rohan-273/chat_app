@@ -150,6 +150,14 @@ function ChatApp({ user, onLogout }) {
         console.error("Failed to fetch updated groups:", error);
       }
     });
+    socket.on("group:left", (data) => {
+      setGroups((prev) => prev.filter(g => g.id !== data.groupId));
+      
+      // Close chat window if the left group is currently open
+      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
+        setActiveChat(null);
+      }
+    });
     socket.on("group:membersUpdated", async (group) => {
       try {
         const token = localStorage.getItem("token");
@@ -257,6 +265,7 @@ function ChatApp({ user, onLogout }) {
       socket.off("group:memberRemoved");
       socket.off("group:removed");
       socket.off("group:memberLeft");
+      socket.off("group:left");
       socket.off("group:membersUpdated");
       socket.off("message:send");
       socket.off("message:sent");
