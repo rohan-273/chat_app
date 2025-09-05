@@ -52,13 +52,26 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
           />
         )}
         
-        <div className="mt-4">
+        <div className="mt-4 flex justify-between">
           <button
-          onClick={onClose}
-          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-        >
-          Close
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+          >
+            Close
           </button>
+          {isOwner && (
+            <button
+              onClick={() => {
+                if (user.socket) {
+                  user.socket.emit('group:delete', { groupId: group.id });
+                }
+                onClose();
+              }}
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Delete Group
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -90,6 +90,14 @@ function ChatApp({ user, onLogout }) {
         });
       }
     });
+    socket.on("group:deleted", (data) => {
+      setGroups((prev) => prev.filter(g => g.id !== data.groupId));
+      
+      // Clear active chat if it's the deleted group
+      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
+        setActiveChat(null);
+      }
+    });
     socket.on("group:membersUpdated", async (group) => {
       try {
         const token = localStorage.getItem("token");
@@ -191,10 +199,10 @@ function ChatApp({ user, onLogout }) {
 
     return () => {
       socket.off("user:status");
+      socket.off("user:joined");
       socket.off("group:created");
+      socket.off("group:deleted");
       socket.off("group:membersUpdated");
-
-
       socket.off("message:send");
       socket.off("message:sent");
       socket.off("message:receive");

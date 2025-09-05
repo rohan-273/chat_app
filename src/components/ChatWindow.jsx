@@ -147,19 +147,11 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           )
         );
       });
-      socket.on("group:message:read", (data) => {
-        setMessages((prev) => 
-          prev.map(msg => 
-            msg._id === data.messageId ? { ...msg, status: 'read' } : msg
-          )
-        );
-      });
     
       return () => {
         socket?.off("group:sent");
         socket?.off("group:receive");
         socket?.off("group:message:status");
-        socket?.off("group:message:read");
       };    
     } else {
       setMessages([]);
@@ -261,7 +253,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
                       <span className="text-white">✓✓</span>
                     )}
                     {msg.status === 'read' && (
-                      <span className="text-blue-400">✓✓</span>
+                      <span className="text-blue-800">✓✓</span>
                     )}
                   </div>
                 )}
