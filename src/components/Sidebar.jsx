@@ -65,12 +65,17 @@ function Sidebar({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div
-                    className={`w-3 h-3 rounded-full mr-2 ${
-                      u.online ? "bg-green-500" : "bg-gray-400"
-                    }`}
-                  ></div>
-                  {u.username}
+                  <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                    {u.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-2">{u.username}</span>
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        u.online ? "bg-green-500" : "bg-gray-400"
+                      }`}
+                    ></div>
+                  </div>
                 </div>
                 {messageCounts[u.id] > 0 && (
                   <div className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
