@@ -187,10 +187,38 @@ function ChatApp({ user, onLogout }) {
       }
     });
 
-    socket.on("message:receive", (response) => {
-      const msg = response.data || response;
+    // Listen for personal messages to count unread messages
+    socket.on("message:send", (msg) => {
+      if (msg.sender !== user.id) {
+        const isActiveChat =
+          activeChat?.type === "personal" &&
+          activeChat?.user?.id === msg.sender;
+        if (!isActiveChat) {
+          setMessageCounts((prev) => ({
+            ...prev,
+            [msg.sender]: (prev[msg.sender] || 0) + 1,
+          }));
+        }
+      }
+    });
+    socket.on("message:receive", (msg) => {
       setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender;
+      const senderId = msg.sender?.id || msg.sender;
+      if (senderId !== user.id) {
+        const isActiveChat =
+          activeChat?.type === "personal" &&
+          activeChat?.user?.id === senderId;
+        if (!isActiveChat) {
+          setMessageCounts((prev) => ({
+            ...prev,
+            [senderId]: (prev[senderId] || 0) + 1,
+          }));
+        }
+      }
+    });
+    socket.on("message:send", (msg) => {
+      setAllMessages(prev => [...prev, msg]);
+      const senderId = msg.sender?.id || msg.sender;
       if (senderId !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
@@ -209,10 +237,9 @@ function ChatApp({ user, onLogout }) {
     socket.on("group:send", (msg) => {
       setAllMessages(prev => [...prev, msg]);
     });
-    socket.on("group:receive", (response) => {
-      const msg = response.data || response;
+    socket.on("group:receive", (msg) => {
       setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender;
+      const senderId = msg.sender?.id || msg.sender;      
       if (senderId !== user.id && msg.group) {
         const isActiveChat =
           activeChat?.type === "group" &&
