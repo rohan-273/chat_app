@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import GroupInfoPopup from './GroupInfoPopup';
 import { decryptMessage } from '../utils/encryption';
+import axios from 'axios';
 
 const LABELS = {
   WELCOME_TITLE: "Welcome to Chat App",
@@ -18,9 +19,14 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const messagesEndRef = useRef(null);
   const dropdownRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -40,6 +46,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     setPage(1);
     setHasMore(true);
     setShowScrollDown(false);
+    setShowSearch(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchIndex(-1);
   }, [activeChat]);
 
   useEffect(() => {
@@ -92,6 +102,57 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const searchMessages = async () => {
+    if (!searchQuery.trim()) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      let url;
+      
+      if (activeChat.type === 'group' && activeChat.group?.id) {
+        url = `${import.meta.env.VITE_API_URL}/message/search?query=${encodeURIComponent(searchQuery)}&type=group&groupId=${activeChat.group.id}`;
+      } else if (activeChat.type === 'personal' && activeChat.user?.id) {
+        url = `${import.meta.env.VITE_API_URL}/message/search?query=${encodeURIComponent(searchQuery)}&type=direct&userId=${activeChat.user.id}`;
+      } else {
+        return;
+      }
+      
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSearchResults(response.data.data || []);
+      setCurrentSearchIndex(0);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    }
+  };
+
+  const navigateToMessage = (messageId) => {
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      messageElement.style.backgroundColor = 'rgb(219 234 254)';
+      setTimeout(() => {
+        messageElement.style.backgroundColor = '';
+      }, 2000);
+    }
+  };
+
+  const handleSearchNavigation = (direction) => {
+    if (searchResults.length === 0) return;
+    
+    let newIndex;
+    if (direction === 'up') {
+      newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
+    } else {
+      newIndex = currentSearchIndex < searchResults.length - 1 ? currentSearchIndex + 1 : 0;
+    }
+    
+    setCurrentSearchIndex(newIndex);
+    navigateToMessage(searchResults[newIndex]._id);
   };
 
   useEffect(() => {
@@ -284,8 +345,30 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     <div className="flex-1 flex flex-col relative">
       <div className="border-b border-gray-200 bg-white">
         {activeChat.type === "personal" ? (
-          <div className="p-6">
+          <div className="p-4 flex justify-between items-center">
             <h3 className="font-semibold">{activeChat.user.username}</h3>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="text-gray-500 hover:text-gray-700 p-2 text-lg font-bold"
+              >
+                ⋮
+              </button>
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      setShowSearch(true);
+                      setTimeout(() => searchInputRef.current?.focus(), 100);
+                    }}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Search Messages
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="p-4 flex justify-between items-center">
@@ -317,6 +400,16 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
                     className="block w-full text-left px-4 py-2 hover:bg-gray-100"
                   >
                     Group Info
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDropdown(false);
+                      setShowSearch(true);
+                      setTimeout(() => searchInputRef.current?.focus(), 100);
+                    }}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Search Messages
                   </button>
                   {activeChat.group.createdBy === user.id ? (
                     <button
@@ -352,6 +445,58 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         )}
       </div>
 
+      {showSearch && (
+        <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+          <div className="flex items-center gap-2">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchMessages()}
+              placeholder="Search messages..."
+              className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={searchMessages}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Search
+            </button>
+            {searchResults.length > 0 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleSearchNavigation('up')}
+                  className="p-2 text-gray-600 hover:text-gray-800"
+                >
+                  ↑
+                </button>
+                <span className="text-sm text-gray-600">
+                  {currentSearchIndex + 1}/{searchResults.length}
+                </span>
+                <button
+                  onClick={() => handleSearchNavigation('down')}
+                  className="p-2 text-gray-600 hover:text-gray-800"
+                >
+                  ↓
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery('');
+                setSearchResults([]);
+                setCurrentSearchIndex(-1);
+              }}
+              className="p-2 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {hasMore && messages.length > 0 && (
           <div className="text-center mb-4">
@@ -366,6 +511,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         {messages.map((msg, index) => (
           <div
             key={msg.id || index}
+            data-message-id={msg._id || msg.id}
             className={`mb-3 flex ${
               (msg.sender?.id || msg.sender) === user.id ? "justify-end" : "justify-start"
             }`}
