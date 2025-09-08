@@ -187,38 +187,10 @@ function ChatApp({ user, onLogout }) {
       }
     });
 
-    // Listen for personal messages to count unread messages
-    socket.on("message:send", (msg) => {
-      if (msg.sender !== user.id) {
-        const isActiveChat =
-          activeChat?.type === "personal" &&
-          activeChat?.user?.id === msg.sender;
-        if (!isActiveChat) {
-          setMessageCounts((prev) => ({
-            ...prev,
-            [msg.sender]: (prev[msg.sender] || 0) + 1,
-          }));
-        }
-      }
-    });
-    socket.on("message:receive", (msg) => {
+    socket.on("message:receive", (response) => {
+      const msg = response.data || response;
       setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      if (senderId !== user.id) {
-        const isActiveChat =
-          activeChat?.type === "personal" &&
-          activeChat?.user?.id === senderId;
-        if (!isActiveChat) {
-          setMessageCounts((prev) => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1,
-          }));
-        }
-      }
-    });
-    socket.on("message:send", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
+      const senderId = msg.sender;
       if (senderId !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
