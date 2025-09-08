@@ -238,17 +238,13 @@ function ChatApp({ user, onLogout }) {
       setAllMessages(prev => [...prev, msg]);
     });
     socket.on("group:receive", (msg) => {
-      console.log('Group receive for counting:', msg);
       setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      console.log('Sender ID:', senderId, 'User ID:', user.id, 'Group:', msg.group);
+      const senderId = msg.sender?.id || msg.sender;      
       if (senderId !== user.id && msg.group) {
         const isActiveChat =
           activeChat?.type === "group" &&
           activeChat?.group?.id === msg.group;
-        console.log('Is active chat:', isActiveChat);
         if (!isActiveChat) {
-          console.log('Incrementing group count for:', msg.group);
           setGroupMessageCounts((prev) => ({
             ...prev,
             [msg.group]: (prev[msg.group] || 0) + 1,

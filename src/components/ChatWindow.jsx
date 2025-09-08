@@ -15,8 +15,12 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   const [messageInput, setMessageInput] = useState("");
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef(null);
   const dropdownRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -33,7 +37,62 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
 
   useEffect(() => {
     setMessageInput("");
+    setPage(1);
+    setHasMore(true);
+    setShowScrollDown(false);
   }, [activeChat]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (messagesContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 10;
+        setShowScrollDown(!isAtBottom && messages.length > 0);
+      }
+    };
+
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [activeChat, messages]);
+
+  const loadMoreMessages = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    
+    if (activeChat.type === "personal" && activeChat.user?.id) {
+      const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/conversation/${activeChat.user.id}?page=${pageNum}&limit=20`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await response.json();
+          const newMessages = data.data || [];
+          
+          const container = messagesContainerRef.current;
+          const scrollHeightBefore = container.scrollHeight;
+          
+          setMessages(prev => [...newMessages, ...prev]);
+          setHasMore(newMessages.length === 20);
+          
+          setTimeout(() => {
+            const scrollHeightAfter = container.scrollHeight;
+            container.scrollTop = scrollHeightAfter - scrollHeightBefore;
+          }, 0);
+        } catch (error) {
+          console.error('Failed to fetch messages:', error);
+        }
+      };
+      fetchMessages(nextPage, true);
+    }
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
     if (!activeChat) {
@@ -42,24 +101,31 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     }
 
     if (activeChat.type === "personal" && activeChat.user?.id && user?.socket) {
-      const fetchMessages = async () => {
+      const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/conversation/${activeChat.user.id}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/conversation/${activeChat.user.id}?page=${pageNum}&limit=20`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
-          const messages = data.data || [];
+          const newMessages = data.data || [];
           
-          // Emit read status only for unread messages from the other user
-          messages.forEach(msg => {
-            if ((msg.sender?.id || msg.sender) === activeChat.user.id && msg.status !== 'read') {
-              user.socket.emit('message:read', { messageId: msg._id });
-            }
-          });
-          
-          setMessages(messages);
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+          if (isLoadMore) {
+            setMessages(prev => [...newMessages, ...prev]);
+            setHasMore(newMessages.length === 20);
+          } else {
+            setMessages(newMessages);
+            setHasMore(newMessages.length === 20);
+            setPage(1);
+            
+            newMessages.forEach(msg => {
+              if ((msg.sender?.id || msg.sender) === activeChat.user.id && msg.status !== 'read') {
+                user.socket.emit('message:read', { messageId: msg._id });
+              }
+            });
+            
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+          }
         } catch (error) {
           console.error('Failed to fetch messages:', error);
         }
@@ -84,7 +150,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
           
-          // Emit delivered status if message is for current user
           if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
             socket.emit('message:delivered', { messageId: msg._id });
           }
@@ -120,7 +185,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           const data = await response.json();
           const messages = data.data || [];
           
-          // Emit read status for unread group messages
           messages.forEach(msg => {
             if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
               user.socket.emit('group:message:read', { messageId: msg._id });
@@ -139,7 +203,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       const socket = user.socket;
       socket.emit('joinGroup', activeChat.group.id);
     
-      // For sender acknowledgement
       socket.on("group:sent", (msg) => {
         if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) === user.id) {
           setMessages((prev) => [...prev, msg]);
@@ -147,13 +210,11 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         }
       });
     
-      // For receiving from others
       socket.on("group:receive", (msg) => {
         if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) !== user.id) {
           setMessages((prev) => [...prev, msg]);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
           
-          // Emit delivered status for group message
           if (msg._id) {
             socket.emit('group:message:delivered', { messageId: msg._id });
           }
@@ -220,7 +281,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col relative">
       <div className="border-b border-gray-200 bg-white">
         {activeChat.type === "personal" ? (
           <div className="p-6">
@@ -291,7 +352,17 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
+        {hasMore && messages.length > 0 && (
+          <div className="text-center mb-4">
+            <button
+              onClick={loadMoreMessages}
+              className="text-blue-500 hover:text-blue-700 text-sm underline"
+            >
+              Load more messages
+            </button>
+          </div>
+        )}
         {messages.map((msg, index) => (
           <div
             key={msg.id || index}
@@ -336,6 +407,15 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           </div>
         ))}
         <div ref={messagesEndRef} />
+      </div>
+
+      <div className={`fixed bottom-20 left-1/2 transform -translate-x-1/2 transition-opacity duration-200 z-10 ${showScrollDown ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <button
+          onClick={scrollToBottom}
+          className="bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg hover:bg-blue-600"
+        >
+          ↓
+        </button>
       </div>
 
       {showGroupInfo && activeChat.type === 'group' && (
