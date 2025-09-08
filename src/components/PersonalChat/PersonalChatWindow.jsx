@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { decryptMessage } from '../../utils/encryption';
-import axios from 'axios';
-import EmojiPicker from 'emoji-picker-react';
+import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
+import SearchBar from '../../common/SearchBar';
+import MessageInput from '../../common/MessageInput';
 
 const LABELS = {
   TYPE_MESSAGE: "Type a message...",
@@ -10,48 +11,43 @@ const LABELS = {
 
 function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
   const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const messagesEndRef = useRef(null);
-  const dropdownRef = useRef(null);
-  const messagesContainerRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const emojiPickerRef = useRef(null);
+  
+  const {
+    messageInput,
+    setMessageInput,
+    showDropdown,
+    setShowDropdown,
+    showSearch,
+    setShowSearch,
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    setSearchResults,
+    currentSearchIndex,
+    setCurrentSearchIndex,
+    showEmojiPicker,
+    setShowEmojiPicker,
+    messagesEndRef,
+    dropdownRef,
+    messagesContainerRef,
+    searchInputRef,
+    emojiPickerRef
+  } = useChatWindow(activeChat);
+  
+  const { searchMessages, navigateToMessage, handleSearchNavigation } = useMessageSearch(activeChat);
+
+  useClickOutside(
+    [dropdownRef, emojiPickerRef],
+    [() => setShowDropdown(false), () => setShowEmojiPicker(false)]
+  );
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    setMessageInput("");
     setPage(1);
     setHasMore(true);
     setShowScrollDown(false);
-    setShowSearch(false);
-    setSearchQuery('');
-    setSearchResults([]);
-    setCurrentSearchIndex(-1);
-    setShowEmojiPicker(false);
   }, [activeChat]);
 
   useEffect(() => {
@@ -104,46 +100,10 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const searchMessages = async () => {
-    if (!searchQuery.trim()) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/message/search?query=${encodeURIComponent(searchQuery)}&type=direct&userId=${activeChat.user.id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSearchResults(response.data.data || []);
-      setCurrentSearchIndex(0);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setSearchResults([]);
-    }
-  };
-
-  const navigateToMessage = (messageId) => {
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (messageElement) {
-      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      messageElement.style.backgroundColor = 'rgb(219 234 254)';
-      setTimeout(() => {
-        messageElement.style.backgroundColor = '';
-      }, 2000);
-    }
-  };
-
-  const handleSearchNavigation = (direction) => {
-    if (searchResults.length === 0) return;
-    
-    let newIndex;
-    if (direction === 'up') {
-      newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
-    } else {
-      newIndex = currentSearchIndex < searchResults.length - 1 ? currentSearchIndex + 1 : 0;
-    }
-    
-    setCurrentSearchIndex(newIndex);
-    navigateToMessage(searchResults[newIndex]._id);
+  const handleSearch = async () => {
+    const results = await searchMessages(searchQuery);
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
   };
 
   useEffect(() => {
@@ -284,55 +244,22 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
       </div>
 
       {showSearch && (
-        <div className="p-4 bg-yellow-50 border-b border-yellow-200">
-          <div className="flex items-center gap-2">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && searchMessages()}
-              placeholder="Search messages..."
-              className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={searchMessages}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Search
-            </button>
-            {searchResults.length > 0 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleSearchNavigation('up')}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                >
-                  ↑
-                </button>
-                <span className="text-sm text-gray-600">
-                  {currentSearchIndex + 1}/{searchResults.length}
-                </span>
-                <button
-                  onClick={() => handleSearchNavigation('down')}
-                  className="p-2 text-gray-600 hover:text-gray-800"
-                >
-                  ↓
-                </button>
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setShowSearch(false);
-                setSearchQuery('');
-                setSearchResults([]);
-                setCurrentSearchIndex(-1);
-              }}
-              className="p-2 text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <SearchBar
+          searchInputRef={searchInputRef}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onSearch={handleSearch}
+          searchResults={searchResults}
+          currentSearchIndex={currentSearchIndex}
+          onNavigateUp={() => handleSearchNavigation('up', searchResults, currentSearchIndex, setCurrentSearchIndex)}
+          onNavigateDown={() => handleSearchNavigation('down', searchResults, currentSearchIndex, setCurrentSearchIndex)}
+          onClose={() => {
+            setShowSearch(false);
+            setSearchQuery('');
+            setSearchResults([]);
+            setCurrentSearchIndex(-1);
+          }}
+        />
       )}
 
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
@@ -393,41 +320,14 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
         </button>
       </div>
 
-      <div className="p-4 bg-white border-t relative">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-              placeholder={LABELS.TYPE_MESSAGE}
-              className="w-full p-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 text-xl"
-            >
-              😊
-            </button>
-          </div>
-          <button
-            onClick={sendMessage}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-          >
-            {LABELS.SEND}
-          </button>
-        </div>
-        {showEmojiPicker && (
-          <div ref={emojiPickerRef} className="absolute bottom-16 right-4 z-50">
-            <EmojiPicker
-              onEmojiClick={(emojiObject) => {
-                setMessageInput(prev => prev + emojiObject.emoji);
-              }}
-            />
-          </div>
-        )}
-      </div>
+      <MessageInput
+        messageInput={messageInput}
+        setMessageInput={setMessageInput}
+        onSendMessage={sendMessage}
+        showEmojiPicker={showEmojiPicker}
+        setShowEmojiPicker={setShowEmojiPicker}
+        emojiPickerRef={emojiPickerRef}
+      />
     </>
   );
 }
