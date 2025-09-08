@@ -289,6 +289,7 @@ function ChatApp({ user, onLogout }) {
       socket.off("message:receive");
       socket.off("group:send");
       socket.off("group:receive");
+
     };
   }, [user.socket, user.id, activeChat]);
 
@@ -320,7 +321,14 @@ function ChatApp({ user, onLogout }) {
         messageCounts={messageCounts}
         groupMessageCounts={groupMessageCounts}
       />
-      <ChatWindow user={user} activeChat={activeChat} users={users} allMessages={allMessages} />
+      <ChatWindow 
+        user={user} 
+        activeChat={activeChat} 
+        users={users} 
+        allMessages={allMessages}
+        setMessageCounts={setMessageCounts}
+        setGroupMessageCounts={setGroupMessageCounts}
+      />
     </div>
   );
 }
