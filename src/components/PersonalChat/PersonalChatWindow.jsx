@@ -148,12 +148,6 @@ function PersonalChatWindow({ user, activeChat }) {
         content: messageInput,
         type: "text",
       });
-
-      user.socket.emit("message:sent", {
-        to: activeChat.user.id,
-        content: messageInput,
-        type: "text",
-      });
       setMessageInput("");
     } catch (error) {
       console.error("Send message error:", error);
