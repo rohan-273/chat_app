@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import GroupInfoPopup from './GroupInfoPopup';
 import { decryptMessage } from '../utils/encryption';
 import axios from 'axios';
+import EmojiPicker from 'emoji-picker-react';
 
 const LABELS = {
   WELCOME_TITLE: "Welcome to Chat App",
@@ -23,15 +24,20 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const dropdownRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
+      }
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
       }
     };
 
@@ -50,6 +56,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
     setSearchQuery('');
     setSearchResults([]);
     setCurrentSearchIndex(-1);
+    setShowEmojiPicker(false);
   }, [activeChat]);
 
   useEffect(() => {
@@ -583,16 +590,24 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
         />
       )}
 
-      <div className="p-4 bg-white border-t">
+      <div className="p-4 bg-white border-t relative">
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-            placeholder={LABELS.TYPE_MESSAGE}
-            className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+              placeholder={LABELS.TYPE_MESSAGE}
+              className="w-full p-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 text-xl"
+            >
+              😊
+            </button>
+          </div>
           <button
             onClick={sendMessage}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -600,6 +615,15 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
             {LABELS.SEND}
           </button>
         </div>
+        {showEmojiPicker && (
+          <div ref={emojiPickerRef} className="absolute bottom-16 right-4 z-50">
+            <EmojiPicker
+              onEmojiClick={(emojiObject) => {
+                setMessageInput(prev => prev + emojiObject.emoji);
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
