@@ -277,7 +277,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                   })()} 
                 </div>
               )}
-              <div>{decryptMessage(msg.content || msg.message)}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{decryptMessage(msg.content || msg.message)}</div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
                 <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
