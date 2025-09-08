@@ -269,7 +269,6 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       fetchGroupMessages();
 
       const socket = user.socket;
-      socket.emit('joinGroup', activeChat.group.id);
     
       socket.on("group:sent", (msg) => {
         if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) === user.id) {

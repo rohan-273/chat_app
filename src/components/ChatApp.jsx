@@ -52,6 +52,27 @@ function ChatApp({ user, onLogout }) {
 
     const socket = user.socket;
     if (!socket) return;
+    
+    // Join all user groups on login
+    const joinUserGroups = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const userGroups = response.data.data.groups || [];
+        userGroups.forEach(group => {
+          socket.emit('joinGroup', group.id);
+        });
+      } catch (error) {
+        console.error("Failed to join user groups:", error);
+      }
+    };
+    
+    joinUserGroups();
     socket.on("user:status", (statusData) => {
       setUsers((prev) =>
         prev.map((u) =>
