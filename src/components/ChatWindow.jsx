@@ -93,7 +93,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           const scrollHeightBefore = container.scrollHeight;
           
           setMessages(prev => [...newMessages, ...prev]);
-          setHasMore(newMessages.length === 20);
+          setHasMore(data.pagination?.hasNext || false);
           
           setTimeout(() => {
             const scrollHeightAfter = container.scrollHeight;
@@ -180,10 +180,10 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           
           if (isLoadMore) {
             setMessages(prev => [...newMessages, ...prev]);
-            setHasMore(newMessages.length === 20);
+            setHasMore(data.pagination?.hasNext || false);
           } else {
             setMessages(newMessages);
-            setHasMore(newMessages.length === 20);
+            setHasMore(data.pagination?.hasNext || false);
             setPage(1);
             
             newMessages.forEach(msg => {
@@ -247,7 +247,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
       const fetchGroupMessages = async () => {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=1&limit=20`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await response.json();
@@ -260,6 +260,7 @@ function ChatWindow({ user, activeChat, users, allMessages }) {
           });
           
           setMessages(messages);
+          setHasMore(data.pagination?.hasNext || false);
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         } catch (error) {
           console.error('Failed to fetch group messages:', error);
