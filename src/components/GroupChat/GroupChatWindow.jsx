@@ -14,6 +14,8 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   const [messages, setMessages] = useState([]);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   
   const {
     messageInput,
@@ -134,11 +136,18 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         )
       );
     });
+
+    socket.on("group:chat:clear", () => {
+      setMessages([]);
+      setPage(1);
+      setHasMore(false);
+    });
   
     return () => {
       socket?.off("group:sent");
       socket?.off("group:receive");
       socket?.off("group:message:status");
+      socket?.off("group:chat:clear");
     };    
   }, [activeChat, user.id]);
 
@@ -155,6 +164,15 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     } catch (error) {
       console.error("Send message error:", error);
     }
+  };
+
+  const handleClearChat = () => {
+    if (!activeChat?.group?.id || !user?.socket) return;
+    user.socket.emit("group:chat:clear", { groupId: activeChat.group.id });
+    setShowDropdown(false);
+    setMessages([]);
+    setPage(1);
+    setHasMore(false);
   };
 
   return (
@@ -199,6 +217,12 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                   className="block w-full text-left px-4 py-2 hover:bg-gray-100"
                 >
                   Search Messages
+                </button>
+                <button
+                  onClick={handleClearChat}
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                >
+                  Clear Chat
                 </button>
                 {activeChat.group.createdBy === user.id ? (
                   <button
@@ -262,11 +286,12 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
             }`}
           >
             <div
-              className={`max-w-xs px-3 py-2 rounded-lg ${
+              className={`px-3 py-2 rounded-lg ${
                 (msg.sender?.id || msg.sender) === user.id
                   ? "bg-green-500 text-white"
                   : "bg-white border"
               }`}
+              style={{ maxWidth: '75%', minWidth: '80px' }}
             >
               {(msg.sender?.id || msg.sender) !== user.id && (
                 <div className="text-xs font-medium mb-1 opacity-70">

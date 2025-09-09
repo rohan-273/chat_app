@@ -183,14 +183,29 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
         )
       );
     });
+    socket.on("chat:clear", () => {
+      setMessages([]);
+      setPage(1);
+      setHasMore(false);
+    });
 
     return () => {
       socket?.off("message:send");
       socket?.off("message:receive");
       socket?.off("message:sent");
       socket?.off("message:status");
+      socket?.off("chat:clear");
     };
   }, [activeChat, user.id]);
+
+  const handleClearChat = () => {
+    if (!activeChat || !user?.socket) return;
+    user.socket.emit("chat:clear", { withUserId: activeChat.user.id });
+    setShowDropdown(false);
+    setMessages([]);
+    setPage(1);
+    setHasMore(false);
+  };
 
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
@@ -237,6 +252,12 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
                 >
                   Search Messages
                 </button>
+                <button
+                  onClick={handleClearChat}
+                  className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                >
+                  Clear Chat
+                </button>
               </div>
             )}
           </div>
@@ -282,11 +303,12 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
             }`}
           >
             <div
-              className={`max-w-xs px-3 py-2 rounded-lg ${
+              className={`px-3 py-2 rounded-lg ${
                 (msg.sender?.id || msg.sender) === user.id
                   ? "bg-green-500 text-white"
                   : "bg-white border"
               }`}
+              style={{ maxWidth: '75%', minWidth: '80px' }}
             >
               <div style={{ whiteSpace: 'pre-wrap' }}>{decryptMessage(msg.content || msg.message)}</div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
