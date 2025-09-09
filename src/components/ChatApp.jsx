@@ -5,7 +5,7 @@ import ChatWindow from "./ChatWindow";
 
 function ChatApp({ user, onLogout }) {
   const [activeChat, setActiveChat] = useState(null);
-  const [users, setUsers] = useState([]); // For personal chats (invited only)  
+  const [users, setUsers] = useState([]); 
   const [groups, setGroups] = useState([]);
   const [messageCounts, setMessageCounts] = useState({});
   const [groupMessageCounts, setGroupMessageCounts] = useState({});
@@ -208,6 +208,23 @@ function ChatApp({ user, onLogout }) {
       }
     });
 
+    socket.on("group:nameUpdated", (data) => {
+      // Update in groups list
+      setGroups(prev => prev.map(g => 
+        g.id === data.groupId 
+          ? { ...g, name: data.name }
+          : g
+      ));
+      
+      // Update activeChat if it's the renamed group
+      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
+        setActiveChat(prev => ({
+          ...prev,
+          group: { ...prev.group, name: data.name }
+        }));
+      }
+    });
+
     // Listen for personal messages to count unread messages
     socket.on("message:send", (msg) => {
       if (msg.sender !== user.id) {
@@ -284,6 +301,7 @@ function ChatApp({ user, onLogout }) {
       socket.off("group:memberLeft");
       socket.off("group:left");
       socket.off("group:membersUpdated");
+      socket.off("group:nameUpdated");
       socket.off("message:send");
       socket.off("message:sent");
       socket.off("message:receive");
