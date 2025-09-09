@@ -17,7 +17,6 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
         onClose();
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -35,8 +34,7 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
       user.socket.emit('group:rename', {
         groupId: group.id,
         name: newGroupName.trim()
-      });
-      
+      });      
       setNewGroupName(newGroupName.trim());
     }
     setIsEditingName(false);
@@ -80,14 +78,12 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
           ) : (
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold">{group.name}</h3>
-              {isOwner && (
-                <button
-                  onClick={() => setIsEditingName(true)}
-                  className="text-gray-500 hover:text-gray-700 transform scale-x-[-1]"
-                >
-                  ✎
-                </button>
-              )}
+              <button
+                onClick={() => setIsEditingName(true)}
+                className="text-gray-500 hover:text-gray-700 transform scale-x-[-1]"
+              >
+                ✎
+              </button>
             </div>
           )}
           {isOwner && !showAddUsers && availableUsers.length > 0 && !isEditingName && (
@@ -135,18 +131,13 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
             );
           })}
         </div>
-
-
-
         {showAddUsers && (
           <AddUsersPopup
             availableUsers={availableUsers}
             onClose={() => setShowAddUsers(false)}
             onAddUsers={handleAddUsers}
           />
-        )}
-        
-
+        )}        
       </div>
     </div>
   );
