@@ -205,6 +205,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     setMessages([]);
     setPage(1);
     setHasMore(false);
+    setShowScrollDown(false);
   };
 
   const sendMessage = () => {

@@ -47,6 +47,8 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   );
 
   useEffect(() => {
+    setPage(1);
+    setHasMore(true);
     setShowScrollDown(false);
   }, [activeChat]);
 
@@ -66,6 +68,43 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     }
   }, [messages]);
 
+  const loadMoreMessages = () => {
+    if (!activeChat || !activeChat.group?.id) {
+      console.warn('Cannot load more messages: activeChat is invalid');
+      return;
+    }
+  
+    const nextPage = page + 1;
+    setPage(nextPage);
+    
+    const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        const newMessages = data.data || [];
+        
+        const container = messagesContainerRef.current;
+        const scrollHeightBefore = container ? container.scrollHeight : 0;
+        
+        setMessages(prev => [...newMessages, ...prev]);
+        setHasMore(data.pagination?.hasNext || false);
+        
+        setTimeout(() => {
+          if (container) {
+            const scrollHeightAfter = container.scrollHeight;
+            container.scrollTop = scrollHeightAfter - scrollHeightBefore;
+          }
+        }, 0);
+      } catch (error) {
+        console.error('Failed to fetch messages:', error);
+      }
+    };
+    fetchMessages(nextPage, true);
+  };
+  
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -82,24 +121,32 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       return;
     }
 
-    const fetchGroupMessages = async () => {
+    const fetchGroupMessages = async (pageNum = 1, isLoadMore = false) => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=1&limit=20`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await response.json();
-        const messages = data.data || [];
+        const newMessages = data.data || [];
         
-        messages.forEach(msg => {
-          if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
-            user.socket.emit('group:message:read', { messageId: msg._id });
+        if (isLoadMore) {
+          setMessages(prev => [...newMessages, ...prev]);
+          setHasMore(data.pagination?.hasNext || false);
+        } else {
+          setMessages(newMessages);
+          setHasMore(data.pagination?.hasNext || false);
+          setPage(1);
+          
+          newMessages.forEach(msg => {
+            if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
+              user.socket.emit('group:message:read', { messageId: msg._id });
           }
         });
         
-        setMessages(messages);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      } catch (error) {
+      }
+     } catch (error) {
         console.error('Failed to fetch group messages:', error);
         setMessages([]);
       }
@@ -173,6 +220,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     setMessages([]);
     setPage(1);
     setHasMore(false);
+    setShowScrollDown(false);
   };
 
   return (
@@ -277,6 +325,16 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       )}
 
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
+        {hasMore && messages.length > 0 && (
+          <div className="text-center mb-4">
+            <button
+              onClick={loadMoreMessages}
+              className="text-blue-500 hover:text-blue-700 text-sm underline"
+            >
+              Load more messages
+            </button>
+          </div>
+        )}
         {messages.map((msg, index) => (
           <div
             key={msg.id || index}
