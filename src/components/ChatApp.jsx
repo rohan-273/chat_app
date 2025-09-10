@@ -5,7 +5,7 @@ import ChatWindow from "./ChatWindow";
 
 function ChatApp({ user, onLogout }) {
   const [activeChat, setActiveChat] = useState(null);
-  const [users, setUsers] = useState([]); 
+  const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [messageCounts, setMessageCounts] = useState({});
   const [groupMessageCounts, setGroupMessageCounts] = useState({});
@@ -52,9 +52,16 @@ function ChatApp({ user, onLogout }) {
 
     const socket = user.socket;
     if (!socket) return;
-    
-    // Join all user groups on login
+
+    // Join all user groups only on first login
     const joinUserGroups = async () => {
+      // Check if groups have already been joined
+      const hasJoinedGroups = localStorage.getItem("hasJoinedGroups");
+      if (hasJoinedGroups === "true") {
+        console.log("Groups already joined, skipping joinGroup event");
+        return;
+      }
+
       try {
         const token = localStorage.getItem("token");
         const response = await axios.get(
@@ -64,15 +71,18 @@ function ChatApp({ user, onLogout }) {
           }
         );
         const userGroups = response.data.data.groups || [];
-        userGroups.forEach(group => {
-          socket.emit('joinGroup', group.id);
+        userGroups.forEach((group) => {
+          socket.emit("joinGroup", group.id);
         });
+        // Set flag to indicate groups have been joined
+        localStorage.setItem("hasJoinedGroups", "true");
       } catch (error) {
         console.error("Failed to join user groups:", error);
       }
     };
-    
+
     joinUserGroups();
+
     socket.on("user:status", (statusData) => {
       setUsers((prev) =>
         prev.map((u) =>
@@ -90,6 +100,7 @@ function ChatApp({ user, onLogout }) {
         )
       );
     });
+
     socket.on("group:created", async (group) => {
       try {
         const token = localStorage.getItem("token");
@@ -100,6 +111,8 @@ function ChatApp({ user, onLogout }) {
           }
         );
         setGroups(response.data.data.groups || []);
+        // Join the newly created group
+        socket.emit("joinGroup", group.id);
       } catch (error) {
         console.error("Failed to fetch updated groups:", error);
         setGroups((prev) => {
@@ -111,14 +124,14 @@ function ChatApp({ user, onLogout }) {
         });
       }
     });
+
     socket.on("group:deleted", (data) => {
-      setGroups((prev) => prev.filter(g => g.id !== data.groupId));
-      
-      // Clear active chat if it's the deleted group
+      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
       if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
         setActiveChat(null);
       }
     });
+
     socket.on("group:memberRemoved", async (data) => {
       try {
         const token = localStorage.getItem("token");
@@ -129,10 +142,13 @@ function ChatApp({ user, onLogout }) {
           }
         );
         setGroups(response.data.data.groups || []);
-        
-        // Update activeChat if it's the same group
-        if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-          const updatedGroup = response.data.data.groups.find(g => g.id === data.groupId);
+        if (
+          activeChat?.type === "group" &&
+          activeChat?.group?.id === data.groupId
+        ) {
+          const updatedGroup = response.data.data.groups.find(
+            (g) => g.id === data.groupId
+          );
           if (updatedGroup) {
             setActiveChat({ type: "group", group: updatedGroup });
           }
@@ -141,14 +157,14 @@ function ChatApp({ user, onLogout }) {
         console.error("Failed to fetch updated groups:", error);
       }
     });
+
     socket.on("group:removed", (data) => {
-      setGroups((prev) => prev.filter(g => g.id !== data.groupId));
-      
-      // Clear active chat if user was removed from this group
+      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
       if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
         setActiveChat(null);
       }
     });
+
     socket.on("group:memberLeft", async (data) => {
       try {
         const token = localStorage.getItem("token");
@@ -159,10 +175,13 @@ function ChatApp({ user, onLogout }) {
           }
         );
         setGroups(response.data.data.groups || []);
-        
-        // Update activeChat if it's the same group
-        if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-          const updatedGroup = response.data.data.groups.find(g => g.id === data.groupId);
+        if (
+          activeChat?.type === "group" &&
+          activeChat?.group?.id === data.groupId
+        ) {
+          const updatedGroup = response.data.data.groups.find(
+            (g) => g.id === data.groupId
+          );
           if (updatedGroup) {
             setActiveChat({ type: "group", group: updatedGroup });
           }
@@ -171,14 +190,14 @@ function ChatApp({ user, onLogout }) {
         console.error("Failed to fetch updated groups:", error);
       }
     });
+
     socket.on("group:left", (data) => {
-      setGroups((prev) => prev.filter(g => g.id !== data.groupId));
-      
-      // Close chat window if the left group is currently open
+      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
       if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
         setActiveChat(null);
       }
     });
+
     socket.on("group:membersUpdated", async (group) => {
       try {
         const token = localStorage.getItem("token");
@@ -189,10 +208,10 @@ function ChatApp({ user, onLogout }) {
           }
         );
         setGroups(response.data.data.groups || []);
-        
-        // Update activeChat if it's the same group
         if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
-          const updatedGroup = response.data.data.groups.find(g => g.id === group.id);
+          const updatedGroup = response.data.data.groups.find(
+            (g) => g.id === group.id
+          );
           if (updatedGroup) {
             setActiveChat({ type: "group", group: updatedGroup });
           }
@@ -200,8 +219,6 @@ function ChatApp({ user, onLogout }) {
       } catch (error) {
         console.error("Failed to fetch updated groups:", error);
         setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
-        
-        // Update activeChat with fallback data
         if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
           setActiveChat({ type: "group", group });
         }
@@ -209,38 +226,35 @@ function ChatApp({ user, onLogout }) {
     });
 
     socket.on("group:nameUpdated", (data) => {
-      // Update in groups list
-      setGroups(prev => prev.map(g => 
-        g.id === data.groupId 
-          ? { ...g, name: data.name }
-          : g
-      ));
-      
-      // Update activeChat if it's the renamed group
+      setGroups((prev) =>
+        prev.map((g) => (g.id === data.groupId ? { ...g, name: data.name } : g))
+      );
       if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-        setActiveChat(prev => ({
+        setActiveChat((prev) => ({
           ...prev,
-          group: { ...prev.group, name: data.name }
+          group: { ...prev.group, name: data.name },
         }));
       }
     });
 
-    // Listen for personal messages to count unread messages
     socket.on("message:send", (msg) => {
-      if (msg.sender !== user.id) {
+      setAllMessages((prev) => [...prev, msg]);
+      const senderId = msg.sender?.id || msg.sender;
+      if (senderId !== user.id) {
         const isActiveChat =
           activeChat?.type === "personal" &&
-          activeChat?.user?.id === msg.sender;
+          activeChat?.user?.id === senderId;
         if (!isActiveChat) {
           setMessageCounts((prev) => ({
             ...prev,
-            [msg.sender]: (prev[msg.sender] || 0) + 1,
+            [senderId]: (prev[senderId] || 0) + 1,
           }));
         }
       }
     });
+
     socket.on("message:receive", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
+      setAllMessages((prev) => [...prev, msg]);
       const senderId = msg.sender?.id || msg.sender;
       if (senderId !== user.id) {
         const isActiveChat =
@@ -254,30 +268,18 @@ function ChatApp({ user, onLogout }) {
         }
       }
     });
-    socket.on("message:send", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      if (senderId !== user.id) {
-        const isActiveChat =
-          activeChat?.type === "personal" &&
-          activeChat?.user?.id === senderId;
-        if (!isActiveChat) {
-          setMessageCounts((prev) => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1,
-          }));
-        }
-      }
-    });
+
     socket.on("message:sent", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
+      setAllMessages((prev) => [...prev, msg]);
     });
+
     socket.on("group:send", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
+      setAllMessages((prev) => [...prev, msg]);
     });
+
     socket.on("group:receive", (msg) => {
-      setAllMessages(prev => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;      
+      setAllMessages((prev) => [...prev, msg]);
+      const senderId = msg.sender?.id || msg.sender;
       if (senderId !== user.id && msg.group) {
         const isActiveChat =
           activeChat?.type === "group" &&
@@ -293,7 +295,6 @@ function ChatApp({ user, onLogout }) {
 
     return () => {
       socket.off("user:status");
-      socket.off("user:joined");
       socket.off("group:created");
       socket.off("group:deleted");
       socket.off("group:memberRemoved");
@@ -307,13 +308,17 @@ function ChatApp({ user, onLogout }) {
       socket.off("message:receive");
       socket.off("group:send");
       socket.off("group:receive");
-
     };
   }, [user.socket, user.id, activeChat]);
 
+  // Reset hasJoinedGroups flag on logout
+  const handleLogout = () => {
+    localStorage.removeItem("hasJoinedGroups");
+    onLogout();
+  };
+
   const handleSetActiveChat = (chat) => {
     setActiveChat(chat);
-    // Clear message count when chat is opened
     if (chat?.type === "personal") {
       setMessageCounts((prev) => ({
         ...prev,
@@ -335,14 +340,14 @@ function ChatApp({ user, onLogout }) {
         groups={groups}
         activeChat={activeChat}
         setActiveChat={handleSetActiveChat}
-        onLogout={onLogout}
+        onLogout={handleLogout}
         messageCounts={messageCounts}
         groupMessageCounts={groupMessageCounts}
       />
-      <ChatWindow 
-        user={user} 
-        activeChat={activeChat} 
-        users={users} 
+      <ChatWindow
+        user={user}
+        activeChat={activeChat}
+        users={users}
         allMessages={allMessages}
         setMessageCounts={setMessageCounts}
         setGroupMessageCounts={setGroupMessageCounts}
