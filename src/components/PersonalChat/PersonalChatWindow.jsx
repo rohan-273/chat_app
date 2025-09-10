@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { decryptMessage } from '../../utils/encryption';
+import { decryptMessage, encryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
@@ -212,15 +212,16 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     if (!messageInput.trim() || !activeChat || !user?.socket) return;
 
     try {
+      const encryptedContent = encryptMessage(messageInput);
       user.socket.emit("message:send", {
         to: activeChat.user.id,
-        content: messageInput,
+        content: encryptedContent,
         type: "text",
       });
 
       user.socket.emit("message:sent", {
         to: activeChat.user.id,
-        content: messageInput,
+        content: encryptedContent,
         type: "text",
       });
       setMessageInput("");

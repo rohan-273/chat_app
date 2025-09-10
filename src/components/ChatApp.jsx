@@ -57,8 +57,7 @@ function ChatApp({ user, onLogout }) {
     const joinUserGroups = async () => {
       // Check if groups have already been joined
       const hasJoinedGroups = localStorage.getItem("hasJoinedGroups");
-      if (hasJoinedGroups === "true") {
-        console.log("Groups already joined, skipping joinGroup event");
+      if (hasJoinedGroups === "true") {      
         return;
       }
 
