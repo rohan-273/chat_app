@@ -8,6 +8,14 @@ function MessageInput({
   setShowEmojiPicker, 
   emojiPickerRef 
 }) {
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onSendMessage();
+    }
+  };
+
   return (
     <div className="p-4 bg-white border-t relative">
       <div className="flex gap-2">
@@ -19,7 +27,7 @@ function MessageInput({
               e.target.style.height = 'auto';
               e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
             }}
-            onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && onSendMessage()}
+            onKeyDown={handleKeyPress}
             placeholder="Type a message..."
             className="w-full p-3 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-y-auto leading-relaxed"
             rows={1}
@@ -29,6 +37,7 @@ function MessageInput({
               lineHeight: '1.5',
               fontSize: '14px',
               scrollbarWidth: 'thin',
+              scrollbarColor: '#c1c1c1 #f1f1f1',
               WebkitScrollbar: {
                 width: '2px'
               },

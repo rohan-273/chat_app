@@ -168,6 +168,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
 
         if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
           socket.emit('message:delivered', { messageId: msg._id });
+          socket.emit('message:read', { messageId: msg._id });
           if (setMessageCounts) {
             setMessageCounts(prev => ({ ...prev, [activeChat.user.id]: 0 }));
           }
