@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { decryptMessage, encryptMessage } from '../../utils/encryption';
+import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
@@ -9,12 +9,16 @@ const LABELS = {
   SEND: "Send",
 };
 
+// Hardcoded key for testing (REMOVE IN PRODUCTION)
+const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
+
 function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
   const [messages, setMessages] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
-  
+  const [encryptionKey, setEncryptionKey] = useState(TEST_ENCRYPTION_KEY);
+
   const {
     messageInput,
     setMessageInput,
@@ -36,7 +40,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     searchInputRef,
     emojiPickerRef
   } = useChatWindow(activeChat);
-  
+
   const { searchMessages, navigateToMessage, handleSearchNavigation } = useMessageSearch(activeChat);
 
   useClickOutside(
@@ -48,6 +52,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     setPage(1);
     setHasMore(true);
     setShowScrollDown(false);
+    setEncryptionKey(TEST_ENCRYPTION_KEY);
   }, [activeChat]);
 
   useEffect(() => {
@@ -69,7 +74,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
   const loadMoreMessages = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    
+
     const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
       try {
         const token = localStorage.getItem('token');
@@ -78,13 +83,13 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
         });
         const data = await response.json();
         const newMessages = data.data || [];
-        
+
         const container = messagesContainerRef.current;
         const scrollHeightBefore = container.scrollHeight;
-        
+
         setMessages(prev => [...newMessages, ...prev]);
         setHasMore(data.pagination?.hasNext || false);
-        
+
         setTimeout(() => {
           const scrollHeightAfter = container.scrollHeight;
           container.scrollTop = scrollHeightAfter - scrollHeightBefore;
@@ -120,7 +125,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
         });
         const data = await response.json();
         const newMessages = data.data || [];
-        
+
         if (isLoadMore) {
           setMessages(prev => [...newMessages, ...prev]);
           setHasMore(data.pagination?.hasNext || false);
@@ -128,13 +133,13 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
           setMessages(newMessages);
           setHasMore(data.pagination?.hasNext || false);
           setPage(1);
-          
+
           newMessages.forEach(msg => {
             if ((msg.sender?.id || msg.sender) === activeChat.user.id && msg.status !== 'read') {
               user.socket.emit('message:read', { messageId: msg._id });
             }
           });
-          
+
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       } catch (error) {
@@ -160,10 +165,9 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
       ) {
         setMessages((prev) => [...prev, msg]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        
+
         if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
           socket.emit('message:delivered', { messageId: msg._id });
-          // Clear message count for this user
           if (setMessageCounts) {
             setMessageCounts(prev => ({ ...prev, [activeChat.user.id]: 0 }));
           }
@@ -177,8 +181,8 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
       }
     });
     socket.on("message:status", (data) => {
-      setMessages((prev) => 
-        prev.map(msg => 
+      setMessages((prev) =>
+        prev.map(msg =>
           msg._id === data.messageId ? { ...msg, status: data.status } : msg
         )
       );
@@ -209,10 +213,14 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
   };
 
   const sendMessage = () => {
-    if (!messageInput.trim() || !activeChat || !user?.socket) return;
+    if (!messageInput.trim() || !activeChat || !user?.socket || !encryptionKey) {
+      console.warn('Cannot send message: missing input, chat, socket, or encryption key');
+      return;
+    }
 
     try {
-      const encryptedContent = encryptMessage(messageInput);
+      const encryptedContent = encryptMessage(messageInput, encryptionKey);
+      console.log('Sending encrypted content:', encryptedContent); // Debugging
       user.socket.emit("message:send", {
         to: activeChat.user.id,
         content: encryptedContent,
@@ -312,7 +320,13 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
               }`}
               style={{ maxWidth: '75%', minWidth: '80px' }}
             >
-              <div style={{ whiteSpace: 'pre-wrap' }}>{decryptMessage(msg.content || msg.message)}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {(() => {
+                  const decrypted = decryptMessage(msg.content || msg.message, encryptionKey);
+                  console.log('Decrypting message:', msg.content || msg.message, 'to:', decrypted); // Debugging
+                  return decrypted;
+                })()}
+              </div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
                 <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 {(msg.sender?.id || msg.sender) === user.id && (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import GroupInfoPopup from '../GroupInfoPopup';
-import { decryptMessage } from '../../utils/encryption';
+import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
@@ -10,13 +10,17 @@ const LABELS = {
   SEND: "Send",
 };
 
+// Hardcoded key for testing (REMOVE IN PRODUCTION)
+const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
+
 function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   const [messages, setMessages] = useState([]);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  
+  const [encryptionKey, setEncryptionKey] = useState(TEST_ENCRYPTION_KEY);
+
   const {
     messageInput,
     setMessageInput,
@@ -38,7 +42,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     searchInputRef,
     emojiPickerRef
   } = useChatWindow(activeChat);
-  
+
   const { searchMessages, navigateToMessage, handleSearchNavigation } = useMessageSearch(activeChat);
 
   useClickOutside(
@@ -50,6 +54,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     setPage(1);
     setHasMore(true);
     setShowScrollDown(false);
+    setEncryptionKey(TEST_ENCRYPTION_KEY);
   }, [activeChat]);
 
   useEffect(() => {
@@ -73,25 +78,28 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       console.warn('Cannot load more messages: activeChat is invalid');
       return;
     }
-  
+
     const nextPage = page + 1;
     setPage(nextPage);
-    
+
     const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const data = await response.json();
         const newMessages = data.data || [];
-        
+
         const container = messagesContainerRef.current;
         const scrollHeightBefore = container ? container.scrollHeight : 0;
-        
+
         setMessages(prev => [...newMessages, ...prev]);
         setHasMore(data.pagination?.hasNext || false);
-        
+
         setTimeout(() => {
           if (container) {
             const scrollHeightAfter = container.scrollHeight;
@@ -104,7 +112,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     };
     fetchMessages(nextPage, true);
   };
-  
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -124,12 +132,15 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     const fetchGroupMessages = async (pageNum = 1, isLoadMore = false) => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/message/group/${activeChat.group.id}?page=${pageNum}&limit=20`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const data = await response.json();
         const newMessages = data.data || [];
-        
+
         if (isLoadMore) {
           setMessages(prev => [...newMessages, ...prev]);
           setHasMore(data.pagination?.hasNext || false);
@@ -137,16 +148,16 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
           setMessages(newMessages);
           setHasMore(data.pagination?.hasNext || false);
           setPage(1);
-          
+
           newMessages.forEach(msg => {
             if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
               user.socket.emit('group:message:read', { messageId: msg._id });
-          }
-        });
-        
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      }
-     } catch (error) {
+            }
+          });
+
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+      } catch (error) {
         console.error('Failed to fetch group messages:', error);
         setMessages([]);
       }
@@ -154,31 +165,31 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     fetchGroupMessages();
 
     const socket = user.socket;
-  
+
     socket.on("group:sent", (msg) => {
       if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) === user.id) {
         setMessages((prev) => [...prev, msg]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
     });
-  
+
     socket.on("group:receive", (msg) => {
       if (msg?.group === activeChat.group.id && (msg.sender?.id || msg.sender) !== user.id) {
         setMessages((prev) => [...prev, msg]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        
+
         if (msg._id) {
           socket.emit('group:message:delivered', { messageId: msg._id });
-          // Clear message count for this group
           if (setGroupMessageCounts) {
             setGroupMessageCounts(prev => ({ ...prev, [activeChat.group.id]: 0 }));
           }
         }
       }
     });
+
     socket.on("group:message:status", (data) => {
-      setMessages((prev) => 
-        prev.map(msg => 
+      setMessages((prev) =>
+        prev.map(msg =>
           msg._id === data.messageId ? { ...msg, status: data.status } : msg
         )
       );
@@ -189,23 +200,28 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       setPage(1);
       setHasMore(false);
     });
-  
+
     return () => {
       socket?.off("group:sent");
       socket?.off("group:receive");
       socket?.off("group:message:status");
       socket?.off("group:chat:clear");
-    };    
+    };
   }, [activeChat, user.id]);
 
   const sendMessage = () => {
-    if (!messageInput.trim() || !activeChat || !user?.socket) return;
+    if (!messageInput.trim() || !activeChat || !user?.socket || !encryptionKey) {
+      console.warn('Cannot send message: missing input, chat, socket, or encryption key');
+      return;
+    }
 
     try {
+      const encryptedContent = encryptMessage(messageInput, encryptionKey);
+      console.log('Sending encrypted content:', encryptedContent); // Debugging
       user.socket.emit("group:send", {
         groupId: activeChat.group.id,
-        content: messageInput,
-        type: "text"
+        content: encryptedContent,
+        type: "text",
       });
       setMessageInput("");
     } catch (error) {
@@ -357,12 +373,18 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                     const senderId = msg.sender?.id || msg.sender;
                     const senderUser = users.find(u => u.id === senderId);
                     return senderUser?.username || senderUser?.email || 'Unknown User';
-                  })()} 
+                  })()}
                 </div>
               )}
-              <div style={{ whiteSpace: 'pre-wrap' }}>{decryptMessage(msg.content || msg.message)}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>
+                {(() => {
+                  const decrypted = decryptMessage(msg.content || msg.message, encryptionKey);
+                  console.log('Decrypting message:', msg.content || msg.message, 'to:', decrypted); // Debugging
+                  return decrypted;
+                })()}
+              </div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
-                <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>
           </div>

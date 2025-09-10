@@ -1,33 +1,34 @@
+// utils/encryption.js
 import CryptoJS from 'crypto-js';
 
-// Shared secret key (in production, use secure key exchange or backend-managed keys)
-const SECRET_KEY = 'your-secret-key-12345'; // Replace with a secure key
+export const generateRandomKey = () => {
+  return CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex);
+};
 
-// Encrypt message
-export const encryptMessage = (message) => {
+export const encryptMessage = (message, key) => {
   try {
-    if (!message || typeof message !== 'string') {
+    if (!message || typeof message !== 'string' || !key) {
+      console.warn('Invalid input for encryption; returning original message.');
       return message;
     }
-    return CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
+    return CryptoJS.AES.encrypt(message, key).toString();
   } catch (error) {
     console.error('Encryption error:', error);
-    return message; // Fallback to plaintext if encryption fails
+    return message;
   }
 };
 
-// Decrypt message
-export const decryptMessage = (encryptedContent) => {
+export const decryptMessage = (encryptedContent, key) => {
   try {
-    if (!encryptedContent || typeof encryptedContent !== 'string') {
+    if (!encryptedContent || typeof encryptedContent !== 'string' || !key) {
+      console.warn('Invalid input for decryption; returning original content.');
       return encryptedContent;
     }
-    const bytes = CryptoJS.AES.decrypt(encryptedContent, SECRET_KEY);
+    const bytes = CryptoJS.AES.decrypt(encryptedContent, key);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    // If decryption fails (e.g., invalid ciphertext), return original
     return decrypted || encryptedContent;
   } catch (error) {
     console.error('Decryption error:', error);
-    return encryptedContent; // Fallback to original if decryption fails
+    return encryptedContent;
   }
 };
