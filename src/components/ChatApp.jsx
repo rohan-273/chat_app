@@ -59,16 +59,7 @@ function ChatApp({ user, onLogout }) {
 
     fetchInitialData();
 
-    if (!s) return;
-
-    if (localStorage.getItem("hasJoinedGroups") !== "true") {
-      axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers })
-        .then(res => {
-          (res.data.data.groups || []).forEach(g => s.emit("joinGroup", g.id));
-          localStorage.setItem("hasJoinedGroups", "true");
-        })
-        .catch(e => console.error("Failed to join groups:", e));
-    }
+    if (!s) return;  
 
     s.on("user:status", ({ userId, isOnline, online, status, lastSeen, lastSeenAt }) => {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, online: isOnline ?? online ?? status ?? false, lastSeen: lastSeen ?? lastSeenAt } : u));
@@ -159,6 +150,18 @@ function ChatApp({ user, onLogout }) {
       s.off("group:receive");
     };
   }, [user.socket, user.id, activeChat]);
+
+  useEffect(() => {
+    const s = user.socket;
+    if (!s) return;
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: `Bearer ${token}` };
+    axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers })
+      .then(res => {
+        (res.data.data.groups || []).forEach(g => s.emit("joinGroup", g.id));
+      })
+      .catch(e => console.error("Failed to join groups:", e));
+  }, [user.socket, user.id]);
 
   return (
     <div className="flex h-full">
