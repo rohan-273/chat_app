@@ -12,324 +12,153 @@ function ChatApp({ user, onLogout }) {
   const [allMessages, setAllMessages] = useState([]);
 
   useEffect(() => {
-    // Fetch all registered users via API
-    const fetchUsers = async () => {
+    try {
+      const mc = localStorage.getItem('messageCounts');
+      if (mc) {
+        const parsed = JSON.parse(mc);
+        if (parsed && typeof parsed === 'object') setMessageCounts(parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to parse messageCounts from localStorage', e);
+    }
+    try {
+      const gmc = localStorage.getItem('groupMessageCounts');
+      if (gmc) {
+        const parsed = JSON.parse(gmc);
+        if (parsed && typeof parsed === 'object') setGroupMessageCounts(parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to parse groupMessageCounts from localStorage', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('messageCounts', JSON.stringify(messageCounts)); } catch {}
+  }, [messageCounts]);
+  useEffect(() => {
+    try { localStorage.setItem('groupMessageCounts', JSON.stringify(groupMessageCounts)); } catch {}
+  }, [groupMessageCounts]);
+
+  useEffect(() => {
+    const s = user.socket;
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const fetchInitialData = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const allRegisteredUsers = response.data.data.filter(
-          (u) => u.id !== user.id
-        );
-        setUsers(allRegisteredUsers);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
+        const [userRes, groupRes] = await Promise.all([
+          axios.get(`${import.meta.env.VITE_API_URL}/users`, { headers }),
+          axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers })
+        ]);
+        setUsers(userRes.data.data.filter(u => u.id !== user.id));
+        setGroups(groupRes.data.data.groups || []);
+      } catch (e) {
+        console.error("Failed to fetch initial data:", e);
       }
     };
 
-    fetchUsers();
+    fetchInitialData();
 
-    const fetchUserGroups = async () => {
+    if (!s) return;
+
+    if (localStorage.getItem("hasJoinedGroups") !== "true") {
+      axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers })
+        .then(res => {
+          (res.data.data.groups || []).forEach(g => s.emit("joinGroup", g.id));
+          localStorage.setItem("hasJoinedGroups", "true");
+        })
+        .catch(e => console.error("Failed to join groups:", e));
+    }
+
+    s.on("user:status", ({ userId, isOnline, online, status, lastSeen, lastSeenAt }) => {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, online: isOnline ?? online ?? status ?? false, lastSeen: lastSeen ?? lastSeenAt } : u));
+    });
+
+    s.on("group:created", async group => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers });
+        setGroups(res.data.data.groups || []);
+        s.emit("joinGroup", group.id);
+      } catch (e) {
+        console.error("Failed to fetch updated groups:", e);
+        setGroups(prev => prev.some(g => g.id === group.id) ? prev.map(g => g.id === group.id ? group : g) : [...prev, group]);
+      }
+    });
+
+    const handleGroupUpdate = async (event, data) => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers });
+        const newGroups = res.data.data.groups || [];
+        setGroups(newGroups);
+        if (activeChat?.type === "group" && activeChat.group.id === (data.groupId || data.id)) {
+          if (["group:deleted", "group:removed", "group:left"].includes(event)) {
+            setActiveChat(null);
+          } else {
+            const updatedGroup = newGroups.find(g => g.id === (data.groupId || data.id));
+            if (updatedGroup) setActiveChat({ type: "group", group: updatedGroup });
           }
-        );
-        setGroups(response.data.data.groups || []);
-      } catch (error) {
-        console.error("Failed to fetch user groups:", error);
+        }
+      } catch (e) {
+        console.error("Failed to fetch updated groups:", e);
+        if (["group:deleted", "group:removed", "group:left"].includes(event)) {
+          setGroups(prev => prev.filter(g => g.id !== data.groupId));
+          if (activeChat?.type === "group" && activeChat.group.id === data.groupId) setActiveChat(null);
+        } else if (event === "group:membersUpdated") {
+          setGroups(prev => prev.map(g => g.id === data.id ? data : g));
+          if (activeChat?.type === "group" && activeChat.group.id === data.id) setActiveChat({ type: "group", group: data });
+        }
       }
     };
 
-    fetchUserGroups();
+    s.on("group:deleted", data => handleGroupUpdate("group:deleted", data));
+    s.on("group:removed", data => handleGroupUpdate("group:removed", data));
+    s.on("group:left", data => handleGroupUpdate("group:left", data));
+    s.on("group:memberRemoved", data => handleGroupUpdate("group:memberRemoved", data));
+    s.on("group:memberLeft", data => handleGroupUpdate("group:memberLeft", data));
+    s.on("group:membersUpdated", data => handleGroupUpdate("group:membersUpdated", data));
 
-    const socket = user.socket;
-    if (!socket) return;
-
-    // Join all user groups only on first login
-    const joinUserGroups = async () => {
-      // Check if groups have already been joined
-      const hasJoinedGroups = localStorage.getItem("hasJoinedGroups");
-      if (hasJoinedGroups === "true") {      
-        return;
+    s.on("group:nameUpdated", ({ groupId, name }) => {
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g));
+      if (activeChat?.type === "group" && activeChat.group.id === groupId) {
+        setActiveChat(prev => ({ ...prev, group: { ...prev.group, name } }));
       }
+    });
 
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const userGroups = response.data.data.groups || [];
-        userGroups.forEach((group) => {
-          socket.emit("joinGroup", group.id);
-        });
-        // Set flag to indicate groups have been joined
-        localStorage.setItem("hasJoinedGroups", "true");
-      } catch (error) {
-        console.error("Failed to join user groups:", error);
+    const handleMessage = (event, msg) => {
+      setAllMessages(prev => [...prev, msg]);
+      const senderId = msg.sender?.id || msg.sender;
+      if (event.includes("group")) {
+        if (senderId !== user.id && msg.group && !(activeChat?.type === "group" && activeChat.group.id === msg.group)) {
+          setGroupMessageCounts(prev => ({ ...prev, [msg.group]: (prev[msg.group] || 0) + 1 }));
+        }
+      } else if (senderId !== user.id && !(activeChat?.type === "personal" && activeChat.user.id === senderId)) {
+        setMessageCounts(prev => ({ ...prev, [senderId]: (prev[senderId] || 0) + 1 }));
       }
     };
 
-    joinUserGroups();
-
-    socket.on("user:status", (statusData) => {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === statusData.userId
-            ? {
-                ...u,
-                online:
-                  statusData.isOnline ??
-                  statusData.online ??
-                  statusData.status ??
-                  false,
-                lastSeen: statusData.lastSeen ?? statusData.lastSeenAt,
-              }
-            : u
-        )
-      );
-    });
-
-    socket.on("group:created", async (group) => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setGroups(response.data.data.groups || []);
-        // Join the newly created group
-        socket.emit("joinGroup", group.id);
-      } catch (error) {
-        console.error("Failed to fetch updated groups:", error);
-        setGroups((prev) => {
-          const exists = prev.find((g) => g.id === group.id);
-          if (!exists) {
-            return [...prev, group];
-          }
-          return prev.map((g) => (g.id === group.id ? group : g));
-        });
-      }
-    });
-
-    socket.on("group:deleted", (data) => {
-      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
-      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-        setActiveChat(null);
-      }
-    });
-
-    socket.on("group:memberRemoved", async (data) => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setGroups(response.data.data.groups || []);
-        if (
-          activeChat?.type === "group" &&
-          activeChat?.group?.id === data.groupId
-        ) {
-          const updatedGroup = response.data.data.groups.find(
-            (g) => g.id === data.groupId
-          );
-          if (updatedGroup) {
-            setActiveChat({ type: "group", group: updatedGroup });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch updated groups:", error);
-      }
-    });
-
-    socket.on("group:removed", (data) => {
-      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
-      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-        setActiveChat(null);
-      }
-    });
-
-    socket.on("group:memberLeft", async (data) => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setGroups(response.data.data.groups || []);
-        if (
-          activeChat?.type === "group" &&
-          activeChat?.group?.id === data.groupId
-        ) {
-          const updatedGroup = response.data.data.groups.find(
-            (g) => g.id === data.groupId
-          );
-          if (updatedGroup) {
-            setActiveChat({ type: "group", group: updatedGroup });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch updated groups:", error);
-      }
-    });
-
-    socket.on("group:left", (data) => {
-      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
-      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-        setActiveChat(null);
-      }
-    });
-
-    socket.on("group:membersUpdated", async (group) => {
-      try {
-        const token = localStorage.getItem("token");
-        const response = await axios.get(
-          `${import.meta.env.VITE_API_URL}/users/${user.id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setGroups(response.data.data.groups || []);
-        if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
-          const updatedGroup = response.data.data.groups.find(
-            (g) => g.id === group.id
-          );
-          if (updatedGroup) {
-            setActiveChat({ type: "group", group: updatedGroup });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch updated groups:", error);
-        setGroups((prev) => prev.map((g) => (g.id === group.id ? group : g)));
-        if (activeChat?.type === "group" && activeChat?.group?.id === group.id) {
-          setActiveChat({ type: "group", group });
-        }
-      }
-    });
-
-    socket.on("group:nameUpdated", (data) => {
-      setGroups((prev) =>
-        prev.map((g) => (g.id === data.groupId ? { ...g, name: data.name } : g))
-      );
-      if (activeChat?.type === "group" && activeChat?.group?.id === data.groupId) {
-        setActiveChat((prev) => ({
-          ...prev,
-          group: { ...prev.group, name: data.name },
-        }));
-      }
-    });
-
-    socket.on("message:send", (msg) => {
-      setAllMessages((prev) => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      if (senderId !== user.id) {
-        const isActiveChat =
-          activeChat?.type === "personal" &&
-          activeChat?.user?.id === senderId;
-        if (!isActiveChat) {
-          setMessageCounts((prev) => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1,
-          }));
-        }
-      }
-    });
-
-    socket.on("message:receive", (msg) => {
-      setAllMessages((prev) => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      if (senderId !== user.id) {
-        const isActiveChat =
-          activeChat?.type === "personal" &&
-          activeChat?.user?.id === senderId;
-        if (!isActiveChat) {
-          setMessageCounts((prev) => ({
-            ...prev,
-            [senderId]: (prev[senderId] || 0) + 1,
-          }));
-        }
-      }
-    });
-
-    socket.on("message:sent", (msg) => {
-      setAllMessages((prev) => [...prev, msg]);
-    });
-
-    socket.on("group:send", (msg) => {
-      setAllMessages((prev) => [...prev, msg]);
-    });
-
-    socket.on("group:receive", (msg) => {
-      setAllMessages((prev) => [...prev, msg]);
-      const senderId = msg.sender?.id || msg.sender;
-      if (senderId !== user.id && msg.group) {
-        const isActiveChat =
-          activeChat?.type === "group" &&
-          activeChat?.group?.id === msg.group;
-        if (!isActiveChat) {
-          setGroupMessageCounts((prev) => ({
-            ...prev,
-            [msg.group]: (prev[msg.group] || 0) + 1,
-          }));
-        }
-      }
-    });
+    s.on("message:send", msg => handleMessage("message:send", msg));
+    s.on("message:receive", msg => handleMessage("message:receive", msg));
+    s.on("message:sent", msg => setAllMessages(prev => [...prev, msg]));
+    s.on("group:send", msg => handleMessage("group:send", msg));
+    s.on("group:receive", msg => handleMessage("group:receive", msg));
 
     return () => {
-      socket.off("user:status");
-      socket.off("group:created");
-      socket.off("group:deleted");
-      socket.off("group:memberRemoved");
-      socket.off("group:removed");
-      socket.off("group:memberLeft");
-      socket.off("group:left");
-      socket.off("group:membersUpdated");
-      socket.off("group:nameUpdated");
-      socket.off("message:send");
-      socket.off("message:sent");
-      socket.off("message:receive");
-      socket.off("group:send");
-      socket.off("group:receive");
+      s.off("user:status");
+      s.off("group:created");
+      s.off("group:deleted");
+      s.off("group:removed");
+      s.off("group:memberRemoved");
+      s.off("group:memberLeft");
+      s.off("group:left");
+      s.off("group:membersUpdated");
+      s.off("group:nameUpdated");
+      s.off("message:send");
+      s.off("message:sent");
+      s.off("message:receive");
+      s.off("group:send");
+      s.off("group:receive");
     };
   }, [user.socket, user.id, activeChat]);
-
-  // Reset hasJoinedGroups flag on logout
-  const handleLogout = () => {
-    localStorage.removeItem("hasJoinedGroups");
-    onLogout();
-  };
-
-  const handleSetActiveChat = (chat) => {
-    setActiveChat(chat);
-    if (chat?.type === "personal") {
-      setMessageCounts((prev) => ({
-        ...prev,
-        [chat.user.id]: 0,
-      }));
-    } else if (chat?.type === "group") {
-      setGroupMessageCounts((prev) => ({
-        ...prev,
-        [chat.group.id]: 0,
-      }));
-    }
-  };
 
   return (
     <div className="flex h-full">
@@ -338,8 +167,12 @@ function ChatApp({ user, onLogout }) {
         users={users}
         groups={groups}
         activeChat={activeChat}
-        setActiveChat={handleSetActiveChat}
-        onLogout={handleLogout}
+        setActiveChat={chat => {
+          setActiveChat(chat);
+          if (chat?.type === "personal") setMessageCounts(prev => ({ ...prev, [chat.user.id]: 0 }));
+          else if (chat?.type === "group") setGroupMessageCounts(prev => ({ ...prev, [chat.group.id]: 0 }));
+        }}
+        onLogout={() => { localStorage.removeItem("hasJoinedGroups"); onLogout(); }}
         messageCounts={messageCounts}
         groupMessageCounts={groupMessageCounts}
       />
