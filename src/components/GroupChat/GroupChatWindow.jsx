@@ -91,11 +91,6 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       if (isLoadMore) {
         setTimeout(() => container && (container.scrollTop = container.scrollHeight - scrollHeightBefore), 0);
       } else {
-        newMessages.forEach(msg => {
-          if ((msg.sender?.id || msg.sender) !== user.id && !msg.readBy?.includes(user.id)) {
-            user.socket.emit('group:read', { messageIds: [msg._id], groupId: activeChat.group.id });
-          }
-        });
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
       }
     } catch (error) {
