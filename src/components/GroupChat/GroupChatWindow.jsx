@@ -5,11 +5,6 @@ import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/us
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
 
-const LABELS = {
-  TYPE_MESSAGE: "Type a message...",
-  SEND: "Send",
-};
-
 // Hardcoded key for testing (REMOVE IN PRODUCTION)
 const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -43,7 +38,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     emojiPickerRef
   } = useChatWindow(activeChat);
 
-  const { searchMessages, navigateToMessage, handleSearchNavigation } = useMessageSearch(activeChat);
+  const { searchMessages, handleSearchNavigation } = useMessageSearch(activeChat);
 
   useClickOutside(
     [dropdownRef, emojiPickerRef],
@@ -82,7 +77,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     const nextPage = page + 1;
     setPage(nextPage);
 
-    const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
+    const fetchMessages = async (pageNum = 1) => {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(
@@ -151,7 +146,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
 
           newMessages.forEach(msg => {
             if ((msg.sender?.id || msg.sender) !== user.id && msg.status !== 'read') {
-              user.socket.emit('group:message:read', { messageId: msg._id });
+              user.socket.emit('group:read', { messageIds: [msg._id], groupId: activeChat.group.id });
             }
           });
 
@@ -159,7 +154,6 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         }
       } catch (error) {
         console.error('Failed to fetch group messages:', error);
-        setMessages([]);
       }
     };
     fetchGroupMessages();
@@ -179,7 +173,8 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
 
         if (msg._id) {
-          socket.emit('group:message:delivered', { messageId: msg._id });
+          socket.emit('group:delivered', { messageId: msg._id, groupId: activeChat.group.id });
+          socket.emit('group:read', { messageIds: [msg._id], groupId: activeChat.group.id });
           if (setGroupMessageCounts) {
             setGroupMessageCounts(prev => ({ ...prev, [activeChat.group.id]: 0 }));
           }
@@ -187,12 +182,62 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       }
     });
 
-    socket.on("group:message:status", (data) => {
-      setMessages((prev) =>
-        prev.map(msg =>
-          msg._id === data.messageId ? { ...msg, status: data.status } : msg
-        )
-      );
+    socket.on("group:status", (data) => {      
+      setMessages((prev) => {
+        const updated = prev.map(msg => {
+          if (msg._id === data.messageId) {
+            const existingStatusData = msg.statusData || {};
+            const newStatusData = data.status || {};
+            
+            const senderId = msg.sender?.id || msg.sender;
+            const senderStatus = {
+              status: 'read',
+              readAt: new Date().toISOString()
+            };
+            
+            const mergedStatusData = {
+              ...existingStatusData,
+              ...newStatusData,
+              [senderId]: senderStatus
+            };
+            
+            const groupMembers = activeChat?.group?.members || [];
+            const currentUserId = user?.id;
+            const isSender = senderId === currentUserId;                               
+                   
+            if (isSender) {
+              const statusCounts = groupMembers.reduce((acc, member) => {
+                const status = mergedStatusData[member.id]?.status || 'not_received';
+                acc[status] = (acc[status] || 0) + 1;
+                return acc;
+              }, {});              
+              
+              let overallStatus = 'sent';
+              const totalMembers = groupMembers.length;
+              
+              if (statusCounts['read'] === totalMembers) {
+                overallStatus = 'read';
+              } else if ((statusCounts['read'] || 0) + (statusCounts['delivered'] || 0) === totalMembers) {                
+                overallStatus = 'delivered';
+              }              
+              
+              return { 
+                ...msg,
+                statusData: mergedStatusData,
+                status: overallStatus,
+                updatedAt: data.updatedAt || msg.updatedAt
+              };
+            }            
+            return {
+              ...msg,
+              statusData: mergedStatusData,
+              updatedAt: data.updatedAt || msg.updatedAt
+            };
+          }
+          return msg;
+        });        
+        return updated;
+      });
     });
 
     socket.on("group:chat:clear", () => {
@@ -204,7 +249,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     return () => {
       socket?.off("group:sent");
       socket?.off("group:receive");
-      socket?.off("group:message:status");
+      socket?.off("group:status");
       socket?.off("group:chat:clear");
     };
   }, [activeChat, user.id]);
@@ -217,7 +262,6 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
 
     try {
       const encryptedContent = encryptMessage(messageInput, encryptionKey);
-      console.log('Sending encrypted content:', encryptedContent); // Debugging
       user.socket.emit("group:send", {
         groupId: activeChat.group.id,
         content: encryptedContent,
@@ -379,12 +423,20 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {(() => {
                   const decrypted = decryptMessage(msg.content || msg.message, encryptionKey);
-                  console.log('Decrypting message:', msg.content || msg.message, 'to:', decrypted); // Debugging
                   return decrypted;
                 })()}
               </div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
-                <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>{new Date(msg.updatedAt || msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {(msg.sender?.id || msg.sender) === user.id && (
+                  <div className="ml-2">
+                    {msg.status === 'read' ? (
+                      <span className="text-blue-600" title="Read by all">✓✓</span>
+                    ) : (
+                      <span className="text-white" title="Delivered">✓✓</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

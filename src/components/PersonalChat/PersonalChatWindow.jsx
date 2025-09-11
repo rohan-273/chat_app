@@ -4,15 +4,10 @@ import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/us
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
 
-const LABELS = {
-  TYPE_MESSAGE: "Type a message...",
-  SEND: "Send",
-};
-
 // Hardcoded key for testing (REMOVE IN PRODUCTION)
 const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
 
-function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
+function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
   const [messages, setMessages] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -41,7 +36,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     emojiPickerRef
   } = useChatWindow(activeChat);
 
-  const { searchMessages, navigateToMessage, handleSearchNavigation } = useMessageSearch(activeChat);
+  const { searchMessages, handleSearchNavigation } = useMessageSearch(activeChat);
 
   useClickOutside(
     [dropdownRef, emojiPickerRef],
@@ -75,7 +70,7 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
     const nextPage = page + 1;
     setPage(nextPage);
 
-    const fetchMessages = async (pageNum = 1, isLoadMore = false) => {
+    const fetchMessages = async (pageNum = 1) => {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${import.meta.env.VITE_API_URL}/message/conversation/${activeChat.user.id}?page=${pageNum}&limit=20`, {
@@ -221,7 +216,6 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
 
     try {
       const encryptedContent = encryptMessage(messageInput, encryptionKey);
-      console.log('Sending encrypted content:', encryptedContent); // Debugging
       user.socket.emit("message:send", {
         to: activeChat.user.id,
         content: encryptedContent,
@@ -324,7 +318,6 @@ function PersonalChatWindow({ user, activeChat, users, setMessageCounts }) {
               <div style={{ whiteSpace: 'pre-wrap' }}>
                 {(() => {
                   const decrypted = decryptMessage(msg.content || msg.message, encryptionKey);
-                  console.log('Decrypting message:', msg.content || msg.message, 'to:', decrypted); // Debugging
                   return decrypted;
                 })()}
               </div>
