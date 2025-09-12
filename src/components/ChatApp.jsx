@@ -157,6 +157,22 @@ function ChatApp({ user, onLogout }) {
     s.on("message:delete", (data) => {
       if (data?.forEveryone) handlePersonalDelete(data);
     });
+    
+    const handleGroupDelete = (data) => {
+      const groupId = data?.groupId || data?.group || data?.group_id;
+      if (!groupId) return;
+      if (!(activeChat?.type === 'group' && activeChat.group.id === groupId)) {
+        setGroupMessageCounts(prev => ({
+          ...prev,
+          [groupId]: Math.max(0, (prev[groupId] || 0) - 1)
+        }));
+      }
+    };
+
+    s.on('group:message:deleted', handleGroupDelete);
+    s.on('group:message:delete', (data) => {
+      if (data?.forEveryone) handleGroupDelete(data);
+    });
 
     return () => {
       s.off("user:status");
@@ -175,6 +191,8 @@ function ChatApp({ user, onLogout }) {
       s.off("group:receive");
       s.off("message:deleted");
       s.off("message:delete");
+      s.off('group:message:deleted');
+      s.off('group:message:delete');
     };
   }, [user.socket, user.id, activeChat]);
 

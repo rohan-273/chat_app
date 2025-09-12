@@ -14,6 +14,8 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [key, setKey] = useState(TEST_KEY);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const {
     messageInput, setMessageInput, showDropdown, setShowDropdown,
@@ -145,6 +147,16 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       }
     });
 
+    const removeGroupMessageById = (data) => {
+      const targetId = (data?.messageId ?? data?._id ?? data?.id ?? data?.message?._id ?? data?.message?.id);
+      if (!targetId) return;
+      setMessages(prev => prev.filter(m => String(m._id || m.id) !== String(targetId)));
+    };
+
+    socket.on('group:message:delete', removeGroupMessageById);
+    socket.on('group:messageDeleted', removeGroupMessageById);
+    socket.on('group:messageHidden', removeGroupMessageById);
+
     socket.on('group:status', data => {
       setMessages(prev => prev.map(msg => {
         if (msg._id !== data.messageId) return msg;
@@ -171,6 +183,9 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       socket.off('group:sent');
       socket.off('group:receive');
       socket.off('group:status');
+      socket.off('group:message:delete', removeGroupMessageById);
+      socket.off('group:messageDeleted', removeGroupMessageById);
+      socket.off('group:messageHidden', removeGroupMessageById);
       socket.off('group:chat:clear');
     };
   }, [activeChat, user.id]);
@@ -276,7 +291,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
           const isUser = senderId === user.id;
           return (
             <div key={msg.id || i} data-message-id={msg._id || msg.id} className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`px-3 py-2 rounded-lg ${isUser ? 'bg-green-500 text-white' : 'bg-white border'}`} style={{ maxWidth: '75%', minWidth: '80px' }}>
+              <div className={`group relative px-3 py-2 rounded-lg ${isUser ? 'bg-green-500 text-white' : 'bg-white border'}`} style={{ maxWidth: '75%', minWidth: '80px' }}>
                 {!isUser && (
                   <div className="text-xs font-medium mb-1 opacity-70">
                     {users.find(u => u.id === senderId)?.username || users.find(u => u.id === senderId)?.email || 'Unknown User'}
@@ -298,6 +313,19 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                     </div>
                   )}
                 </div>
+                {isUser && (
+                  <button
+                    type="button"
+                    aria-label="Delete message"
+                    title="Delete message"
+                    className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-7 h-7 rounded-full bg-black/10 hover:bg-black/20 text-white transition shadow-sm"
+                    onClick={() => { setDeleteTarget(msg); setShowDeleteModal(true); }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                      <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v11a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9zm2 2h2v1h-2V5zm-2 4a1 1 0 1 1 2 0v8a1 1 0 1 1-2 0V9zm6-1a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -329,6 +357,42 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         setShowEmojiPicker={setShowEmojiPicker}
         emojiPickerRef={emojiPickerRef}
       />
+
+      {showDeleteModal && deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-[360px] p-5 animate-[fadeIn_.15s_ease-out]">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z"/></svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900">Delete message?</h4>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800"
+                onClick={() => {
+                  user.socket?.emit('group:message:delete', { groupId: activeChat.group.id, messageId: deleteTarget._id || deleteTarget.id, forEveryone: false });
+                  setShowDeleteModal(false); setDeleteTarget(null);
+                }}
+              >
+                Delete for me
+              </button>
+              <button
+                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  user.socket?.emit('group:message:delete', { groupId: activeChat.group.id, messageId: deleteTarget._id || deleteTarget.id, forEveryone: true });
+                  setShowDeleteModal(false); setDeleteTarget(null);
+                }}
+              >
+                Delete for everyone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
