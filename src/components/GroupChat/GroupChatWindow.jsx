@@ -46,7 +46,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
     return () => container?.removeEventListener('scroll', handleScroll);
   }, [messages]);
 
-  const processMessages = (msgs, senderId, userId) => {
+  const processMessages = (msgs) => {
     return msgs.map(msg => {
       if (!msg.messageStatus || !Array.isArray(msg.messageStatus)) return msg;
       const statusData = {};
@@ -87,6 +87,25 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       setMessages(prev => isLoadMore ? [...newMessages, ...prev] : newMessages);
       setHasMore(pagination?.hasNext || false);
       if (!isLoadMore) setPage(1);
+
+      try {
+        const unreadIds = (isLoadMore ? [...newMessages] : newMessages)
+          .filter(m => {
+            const senderId = m.sender?.id || m.sender;
+            if (senderId === user.id) return false;
+            const statusForUser = m.statusData?.[user.id];
+            return !statusForUser || statusForUser.status !== 'read';
+          })
+          .map(m => m._id)
+          .filter(Boolean);
+
+        if (unreadIds.length > 0 && user?.socket) {
+          user.socket.emit('group:read', { messageIds: unreadIds, groupId: activeChat.group.id });
+          setGroupMessageCounts?.(prev => ({ ...prev, [activeChat.group.id]: 0 }));
+        }
+      } catch (e) {
+        console.warn('Failed to compute/emit group:read on fetch:', e);
+      }
 
       if (isLoadMore) {
         setTimeout(() => container && (container.scrollTop = container.scrollHeight - scrollHeightBefore), 0);
