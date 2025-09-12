@@ -35,6 +35,7 @@ function ChatApp({ user, onLogout }) {
   useEffect(() => {
     try { localStorage.setItem('messageCounts', JSON.stringify(messageCounts)); } catch {}
   }, [messageCounts]);
+  
   useEffect(() => {
     try { localStorage.setItem('groupMessageCounts', JSON.stringify(groupMessageCounts)); } catch {}
   }, [groupMessageCounts]);
@@ -132,6 +133,30 @@ function ChatApp({ user, onLogout }) {
     s.on("message:sent", msg => setAllMessages(prev => [...prev, msg]));
     s.on("group:send", msg => handleMessage("group:send", msg));
     s.on("group:receive", msg => handleMessage("group:receive", msg));
+    
+    const getTargetId = (data) => (data?.messageId ?? data?._id ?? data?.id ?? data?.message?._id ?? data?.message?.id);
+    const handlePersonalDelete = (data) => {
+      const messageId = getTargetId(data);
+      if (!messageId) return;      
+      setAllMessages(prevAll => {
+        const msg = prevAll.find(m => (m?._id || m?.id) === messageId);
+        if (!msg) return prevAll;
+        const senderId = msg.sender?.id || msg.sender;
+        const recipientId = msg.recipient?.id || msg.recipient;        
+        if (recipientId === user.id && senderId && senderId !== user.id) {
+          setMessageCounts(prev => ({
+            ...prev,
+            [senderId]: Math.max(0, (prev[senderId] || 0) - 1)
+          }));
+        }
+        return prevAll;
+      });
+    };
+
+    s.on("message:deleted", handlePersonalDelete);
+    s.on("message:delete", (data) => {
+      if (data?.forEveryone) handlePersonalDelete(data);
+    });
 
     return () => {
       s.off("user:status");
@@ -148,6 +173,8 @@ function ChatApp({ user, onLogout }) {
       s.off("message:receive");
       s.off("group:send");
       s.off("group:receive");
+      s.off("message:deleted");
+      s.off("message:delete");
     };
   }, [user.socket, user.id, activeChat]);
 

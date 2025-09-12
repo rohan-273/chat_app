@@ -4,7 +4,6 @@ import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/us
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
 
-// Hardcoded key for testing (REMOVE IN PRODUCTION)
 const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
 
 function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
@@ -13,6 +12,8 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
   const [hasMore, setHasMore] = useState(true);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState(TEST_ENCRYPTION_KEY);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const {
     messageInput,
@@ -183,6 +184,18 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
         )
       );
     });
+    const removeByMessageId = (data) => {
+      const targetId = (data?.messageId ?? data?._id ?? data?.id ?? data?.message?._id ?? data?.message?.id);
+      if (!targetId) return;
+      setMessages(prev => prev.filter(m => {
+        const mid = (m?._id ?? m?.id);
+        return String(mid) !== String(targetId);
+      }));
+    };
+
+    socket.on("message:delete", removeByMessageId);
+    socket.on("message:deleted", removeByMessageId);
+    
     socket.on("chat:clear", () => {
       setMessages([]);
       setPage(1);
@@ -194,6 +207,8 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
       socket?.off("message:receive");
       socket?.off("message:sent");
       socket?.off("message:status");
+      socket?.off("message:delete", removeByMessageId);
+      socket?.off("message:deleted", removeByMessageId);
       socket?.off("chat:clear");
     };
   }, [activeChat, user.id]);
@@ -291,24 +306,21 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {hasMore && messages.length > 0 && (
           <div className="text-center mb-4">
-            <button
-              onClick={loadMoreMessages}
-              className="text-blue-500 hover:text-blue-700 text-sm underline"
-            >
+            <button onClick={loadMoreMessages} className="text-blue-500 hover:text-blue-700 text-sm underline">
               Load more messages
             </button>
           </div>
         )}
         {messages.map((msg, index) => (
           <div
-            key={msg.id || index}
+            key={(msg._id || msg.id || `${(msg.sender?.id || msg.sender)}-${msg.createdAt || msg.timestamp || index}`)}
             data-message-id={msg._id || msg.id}
             className={`mb-3 flex ${
               (msg.sender?.id || msg.sender) === user.id ? "justify-end" : "justify-start"
             }`}
           >
             <div
-              className={`px-3 py-2 rounded-lg ${
+              className={`group relative px-3 py-2 rounded-lg ${
                 (msg.sender?.id || msg.sender) === user.id
                   ? "bg-green-500 text-white"
                   : "bg-white border"
@@ -323,7 +335,7 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
               </div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
                 <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                {(msg.sender?.id || msg.sender) === user.id && (
+                {(msg.sender?.id || msg.sender) === user.id && !msg.isDeleted && (
                   <div className="ml-2">
                     {(!msg.status || msg.status === 'sent') && (
                       <span className="text-white">✓</span>
@@ -337,6 +349,19 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
                   </div>
                 )}
               </div>
+              {(msg.sender?.id || msg.sender) === user.id && (
+                <button
+                  type="button"
+                  aria-label="Delete message"
+                  title="Delete message"
+                  className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-7 h-7 rounded-full bg-black/10 hover:bg-black/20 text-white transition shadow-sm"
+                  onClick={() => { setDeleteTarget(msg); setShowDeleteModal(true); }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v11a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9zm2 2h2v1h-2V5zm-2 4a1 1 0 1 1 2 0v8a1 1 0 1 1-2 0V9zm6-1a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1z" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -360,6 +385,44 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
         setShowEmojiPicker={setShowEmojiPicker}
         emojiPickerRef={emojiPickerRef}
       />
+
+      {showDeleteModal && deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">          
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }} />          
+          <div className="relative bg-white rounded-xl shadow-2xl w-[360px] p-5 animate-[fadeIn_.15s_ease-out]">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z"/></svg>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900">Delete message?</h4>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800"
+                onClick={() => {                  
+                  setMessages(prev => prev.filter(m => (m._id || m.id) !== (deleteTarget._id || deleteTarget.id)));
+                  user.socket?.emit('message:delete', { messageId: deleteTarget._id || deleteTarget.id, forEveryone: false });
+                  setShowDeleteModal(false); setDeleteTarget(null);
+                }}
+              >
+                Delete for me
+              </button>
+              <button
+                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {                                    
+                  setMessages(prev => prev.filter(m => (m._id || m.id) !== (deleteTarget._id || deleteTarget.id)));
+                  user.socket?.emit('message:delete', { messageId: deleteTarget._id || deleteTarget.id, forEveryone: true });
+                  setShowDeleteModal(false); setDeleteTarget(null);
+                }}
+              >
+                Delete for everyone
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
