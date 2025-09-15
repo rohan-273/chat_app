@@ -12,35 +12,6 @@ function ChatApp({ user, onLogout }) {
   const [allMessages, setAllMessages] = useState([]);
 
   useEffect(() => {
-    try {
-      const mc = localStorage.getItem('messageCounts');
-      if (mc) {
-        const parsed = JSON.parse(mc);
-        if (parsed && typeof parsed === 'object') setMessageCounts(parsed);
-      }
-    } catch (e) {
-      console.warn('Failed to parse messageCounts from localStorage', e);
-    }
-    try {
-      const gmc = localStorage.getItem('groupMessageCounts');
-      if (gmc) {
-        const parsed = JSON.parse(gmc);
-        if (parsed && typeof parsed === 'object') setGroupMessageCounts(parsed);
-      }
-    } catch (e) {
-      console.warn('Failed to parse groupMessageCounts from localStorage', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem('messageCounts', JSON.stringify(messageCounts)); } catch {}
-  }, [messageCounts]);
-  
-  useEffect(() => {
-    try { localStorage.setItem('groupMessageCounts', JSON.stringify(groupMessageCounts)); } catch {}
-  }, [groupMessageCounts]);
-
-  useEffect(() => {
     const s = user.socket;
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
@@ -129,10 +100,109 @@ function ChatApp({ user, onLogout }) {
     };
 
     s.on("message:send", msg => handleMessage("message:send", msg));
-    s.on("message:receive", msg => handleMessage("message:receive", msg));
+    s.on("message:receive", msg => handleMessage("message:receive", msg))
+
+    s.on("messages:unread-counts", (payload) => {
+      let data = payload;
+      if (Array.isArray(payload) && payload.length === 2 && payload[0] === 'messages:unread-counts') {
+        data = payload[1];
+      }
+
+      if (data && Array.isArray(data.counts)) {
+        setMessageCounts(prev => {
+          const next = { ...prev };
+          data.counts.forEach(item => {
+            if (item?.type && item.type !== 'direct') return;
+            const sid = item?.senderId ?? item?.senderid ?? item?.sender ?? item?.userId ?? item?.user_id;
+            const cnt = item?.count ?? item?.unreadCount ?? item?.unread;
+            if (sid != null && Number.isFinite(Number(cnt))) {
+              next[String(sid)] = Number(cnt);
+            }
+          });
+          return next;
+        });
+        return;
+      }
+
+      if (Array.isArray(data)) {
+        setMessageCounts(prev => {
+          const next = { ...prev };
+          data.forEach(item => {
+            const sid = item?.senderId ?? item?.senderid ?? item?.sender ?? item?.userId ?? item?.user_id;
+            const cnt = item?.count ?? item?.unreadCount ?? item?.unread ?? item?.counts;
+            if (sid != null && Number.isFinite(Number(cnt))) {
+              next[String(sid)] = Number(cnt);
+            }
+          });
+          return next;
+        });
+        return;
+      }
+
+      if (data && typeof data === 'object') {
+        setMessageCounts(prev => {
+          const next = { ...prev };
+          Object.entries(data).forEach(([key, val]) => {
+            if (key != null && Number.isFinite(Number(val))) {
+              next[String(key)] = Number(val);
+            }
+          });
+          return next;
+        });
+      }
+    });
     s.on("message:sent", msg => setAllMessages(prev => [...prev, msg]));
     s.on("group:send", msg => handleMessage("group:send", msg));
     s.on("group:receive", msg => handleMessage("group:receive", msg));
+    s.on("group:unread-counts", (payload) => {
+      let data = payload;
+      if (Array.isArray(payload) && payload.length === 2 && payload[0] === 'group:unread-counts') {
+        data = payload[1];
+      }
+
+      if (data && Array.isArray(data.counts)) {
+        setGroupMessageCounts(prev => {
+          const next = { ...prev };
+          data.counts.forEach(item => {
+            if (item?.type && item.type !== 'group') return;
+            const gid = item?.groupId ?? item?.groupID ?? item?.group ?? item?.id ?? item?.group_id;
+            const cnt = item?.count ?? item?.unreadCount ?? item?.unread;
+            if (gid != null && Number.isFinite(Number(cnt))) {
+              next[String(gid)] = Number(cnt);
+            }
+          });
+          return next;
+        });
+        return;
+      }
+
+      if (Array.isArray(data)) {
+        setGroupMessageCounts(prev => {
+          const next = { ...prev };
+          data.forEach(item => {
+            const gid = item?.groupId ?? item?.groupID ?? item?.group ?? item?.id ?? item?.group_id;
+            const cnt = item?.count ?? item?.unreadCount ?? item?.unread ?? item?.counts;
+            if (gid != null && Number.isFinite(Number(cnt))) {
+              next[String(gid)] = Number(cnt);
+            }
+          });
+          return next;
+        });
+        return;
+      }
+
+      if (data && typeof data === 'object') {
+        setGroupMessageCounts(prev => {
+          const next = { ...prev };
+          Object.entries(data).forEach(([key, val]) => {
+            if (key != null && Number.isFinite(Number(val))) {
+              next[String(key)] = Number(val);
+            }
+          });
+          return next;
+        });
+      }
+    });
     
     const getTargetId = (data) => (data?.messageId ?? data?._id ?? data?.id ?? data?.message?._id ?? data?.message?.id);
     const handlePersonalDelete = (data) => {
@@ -187,8 +257,10 @@ function ChatApp({ user, onLogout }) {
       s.off("message:send");
       s.off("message:sent");
       s.off("message:receive");
+      s.off("messages:unread-counts");
       s.off("group:send");
       s.off("group:receive");
+      s.off("group:unread-counts");
       s.off("message:deleted");
       s.off("message:delete");
       s.off('group:message:deleted');
@@ -207,6 +279,13 @@ function ChatApp({ user, onLogout }) {
       })
       .catch(e => console.error("Failed to join groups:", e));
   }, [user.socket, user.id]);
+  
+  useEffect(() => {
+    const s = user.socket;
+    if (!s) return;
+    s.emit("messages:sync");
+    s.emit("group:sync");
+  }, [user.socket]);
 
   return (
     <div className="flex h-full">
