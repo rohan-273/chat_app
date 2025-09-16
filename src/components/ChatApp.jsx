@@ -239,7 +239,7 @@ function ChatApp({ user, onLogout }) {
       }
     };
 
-    s.on('group:message:deleted', handleGroupDelete);
+    s.on('group:messageDeleted', handleGroupDelete);
     s.on('group:message:delete', (data) => {
       if (data?.forEveryone) handleGroupDelete(data);
     });
@@ -263,7 +263,7 @@ function ChatApp({ user, onLogout }) {
       s.off("group:unread-counts");
       s.off("message:deleted");
       s.off("message:delete");
-      s.off('group:message:deleted');
+      s.off('group:messageDeleted');
       s.off('group:message:delete');
     };
   }, [user.socket, user.id, activeChat]);
