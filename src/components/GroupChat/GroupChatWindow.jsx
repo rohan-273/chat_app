@@ -4,7 +4,7 @@ import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
-import { MoreVertical, UsersRound } from "lucide-react";
+import { DoorOpen, Eraser, Info, MoreVertical, Search, Trash, UsersRound } from "lucide-react";
 
 const TEST_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -17,6 +17,8 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   const [key, setKey] = useState(TEST_KEY);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const {
     messageInput, setMessageInput, showDropdown, setShowDropdown,
@@ -247,28 +249,84 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
           </button>
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-              <button onClick={() => { setShowDropdown(false); setShowGroupInfo(true); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100">
-                Group Info
+              <button onClick={() => { setShowDropdown(false); setShowGroupInfo(true); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100">
+                <Info className="w-4 h-4 mr-2" /> Group Info
               </button>
-              <button onClick={() => { setShowDropdown(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 100); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100">
-                Search Messages
+              <button onClick={() => { setShowDropdown(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 100); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100">
+                <Search className="w-4 h-4 mr-2" /> Search Messages
               </button>
-              <button onClick={handleClearChat} className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
-                Clear Chat
+              <button onClick={handleClearChat} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
+                <Eraser className="w-4 h-4 mr-2" /> Clear Chat
               </button>
               <button
                 onClick={() => {
-                  user.socket.emit(activeChat.group.createdBy === user.id ? 'group:delete' : 'group:exit', { groupId: activeChat.group.id });
+                  setConfirmAction(() => () => {
+                    user.socket.emit(
+                      activeChat.group.createdBy === user.id ? 'group:delete' : 'group:exit',
+                      { groupId: activeChat.group.id }
+                    );
+                  });
                   setShowDropdown(false);
+                  setShowConfirmModal(true);
                 }}
-                className="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                className="flex items-center block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
               >
-                {activeChat.group.createdBy === user.id ? 'Delete Group' : 'Leave Group'}
+                {activeChat.group.createdBy === user.id ? (
+                  <>
+                    <Trash className="w-4 h-4 mr-2" />
+                    Delete Group
+                  </>
+                ) : (
+                  <>
+                    <DoorOpen className="w-4 h-4 mr-2" />
+                    Exit Group
+                  </>
+                )}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfirmModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-2xl w-[360px] p-5 animate-[fadeIn_.15s_ease-out]">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                <Trash className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900">
+                  {activeChat.group.createdBy === user.id ? "Delete Group?" : "Exit Group?"}
+                </h4>
+                <p className="text-sm text-gray-500 mt-1">
+                  {activeChat.group.createdBy === user.id
+                    ? "This will permanently delete the group and all messages for all members."
+                    : "You will leave the group and won’t receive further messages."}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800"
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  confirmAction?.();
+                  setShowConfirmModal(false);
+                }}
+              >
+                {activeChat.group.createdBy === user.id ? "Delete" : "Exit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSearch && (
         <SearchBar

@@ -47,7 +47,7 @@ function Sidebar({
       <div className="p-5 border-b border-gray-200">
         <div className="flex items-center justify-between relative">
           <div className="flex items-center">
-            <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+            <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-sm">
               {user.username.charAt(0).toUpperCase()}
             </div>
             <h2 className="text-xl font-semibold">{user?.username}</h2>
@@ -107,7 +107,7 @@ function Sidebar({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                  <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-sm">
                     {u.username.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex items-center">
@@ -134,7 +134,7 @@ function Sidebar({
             <h3 className="font-semibold">Groups</h3>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="text-blue-500 hover:text-blue-700 text-sm"
+              className="text-blue-600 hover:text-blue-800 text-sm"
             >
               + Create
             </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import AddUsersPopup from "./AddUsersPopup";
-import { Pencil, UserPlus } from "lucide-react";
+import { Pencil, UserPlus, UsersRound } from "lucide-react";
 
 function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
   const [showAddUsers, setShowAddUsers] = useState(false);
@@ -60,8 +60,12 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
         className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto"
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">{group.name}</h3>
-
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center">
+              <UsersRound className="w-4 h-4 text-gray-700" />
+            </div>
+            <h3 className="text-lg font-semibold">{group.name}</h3>
+          </div>
           {!isEditingName && (
             <button
               onClick={() => setIsEditingName(true)}
@@ -123,7 +127,7 @@ function GroupInfoPopup({ group, user, users, onClose, onAddUsers }) {
                   className="flex items-center justify-between mb-2"
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                    <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-sm">
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                     <span>{nameWithYou}</span>

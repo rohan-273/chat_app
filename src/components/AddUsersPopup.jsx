@@ -26,7 +26,7 @@ function AddUsersPopup({ availableUsers, onClose, onAddUsers }) {
         <div className="mb-4">
           {availableUsers.length > 0 ? availableUsers.map(user => (
             <label key={user.id} className="flex items-center mb-2">
-              <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+              <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-sm">
                 {user.username.charAt(0).toUpperCase()}
               </div>
               {user.username || user.email}
