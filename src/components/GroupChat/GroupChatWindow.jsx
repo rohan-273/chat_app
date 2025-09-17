@@ -313,7 +313,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                     </div>
                   )}
                 </div>
-                {isUser && (
+                {(isUser || (activeChat.group.createdBy === user.id && !isUser)) && (
                   <button
                     type="button"
                     aria-label="Delete message"
@@ -371,15 +371,21 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
+            {!(activeChat.group.createdBy === user.id && (deleteTarget.sender?.id || deleteTarget.sender) !== user.id) && (
               <button
                 className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800"
                 onClick={() => {
-                  user.socket?.emit('group:message:delete', { groupId: activeChat.group.id, messageId: deleteTarget._id || deleteTarget.id, forEveryone: false });
+                  user.socket?.emit('group:message:delete', {
+                    groupId: activeChat.group.id,
+                    messageId: deleteTarget._id || deleteTarget.id,
+                    forEveryone: false
+                  });
                   setShowDeleteModal(false); setDeleteTarget(null);
                 }}
               >
                 Delete for me
               </button>
+            )}
               <button
                 className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => {
