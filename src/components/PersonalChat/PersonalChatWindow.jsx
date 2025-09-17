@@ -253,7 +253,12 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
     <>
       <div className="border-b border-gray-200 bg-white">
         <div className="p-5 flex justify-between items-center">
-          <h3 className="font-semibold">{activeChat.user.username}</h3>
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+              {activeChat.user.username.charAt(0).toUpperCase()}
+            </div>
+            <h3 className="font-semibold">{activeChat.user.username}</h3>
+          </div>
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}

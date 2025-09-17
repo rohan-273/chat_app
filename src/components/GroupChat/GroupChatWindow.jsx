@@ -4,7 +4,7 @@ import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, UsersRound } from "lucide-react";
 
 const TEST_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -224,14 +224,19 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
   return (
     <>
       <div className="border-b border-gray-200 bg-white p-4 flex justify-between items-center">
-        <div>
-          <h3 className="font-semibold">{activeChat.group.name}</h3>
-          <p className="text-sm text-gray-500">
-            {(() => {
-              const onlineCount = activeChat?.group?.members?.filter(m => m.online)?.length || 0;
-              return `(${onlineCount} online)`;
-            })()}
-          </p>
+        <div className="flex items-center">
+          <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center">
+            <UsersRound className="w-4 h-4 text-gray-700" />
+          </div>
+          <div className="flex flex-col">
+            <h3 className="font-semibold">{activeChat.group.name}</h3>
+            <p className="text-sm text-gray-500">
+              {(() => {
+                const onlineCount = activeChat?.group?.members?.filter(m => m.online)?.length || 0;
+                return `(${onlineCount} online)`;
+              })()}
+            </p>
+          </div>
         </div>
         <div className="relative" ref={dropdownRef}>
           <button
