@@ -1,4 +1,5 @@
 import EmojiPicker from 'emoji-picker-react';
+import { Send } from 'lucide-react';
 
 function MessageInput({ 
   messageInput, 
@@ -52,17 +53,17 @@ function MessageInput({
           />
           <button
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="absolute right-4 bottom-3 text-gray-500 hover:text-gray-700 text-xl"
+            className="absolute right-4 bottom-4 text-gray-500 hover:text-gray-700 text-xl"
           >
             😊
           </button>
         </div>
         <button
           onClick={onSendMessage}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 self-end"
+          className="w-12 h-12 flex items-center justify-center bg-blue-500 text-white rounded-full hover:bg-blue-600"
           style={{ minHeight: '48px' }}
         >
-          Send
+          <Send />
         </button>
       </div>
       {showEmojiPicker && (

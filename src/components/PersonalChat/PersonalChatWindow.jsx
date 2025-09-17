@@ -3,6 +3,7 @@ import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
+import { MoreVertical } from "lucide-react";
 
 const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -251,14 +252,14 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
   return (
     <>
       <div className="border-b border-gray-200 bg-white">
-        <div className="p-4 flex justify-between items-center">
+        <div className="p-5 flex justify-between items-center">
           <h3 className="font-semibold">{activeChat.user.username}</h3>
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
               className="text-gray-500 hover:text-gray-700 p-2 text-lg font-bold"
             >
-              ⋮
+              <MoreVertical className="w-5 h-5 text-gray-600" />
             </button>
             {showDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
@@ -304,14 +305,14 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
       )}
 
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 bg-gray-50">
-        {hasMore && messages.length > 0 && (
+        {hasMore && messages?.length > 0 && (
           <div className="text-center mb-4">
             <button onClick={loadMoreMessages} className="text-blue-500 hover:text-blue-700 text-sm underline">
               Load more messages
             </button>
           </div>
         )}
-        {messages.map((msg, index) => (
+        {messages?.map((msg, index) => (
           <div
             key={(msg._id || msg.id || `${(msg.sender?.id || msg.sender)}-${msg.createdAt || msg.timestamp || index}`)}
             data-message-id={msg._id || msg.id}

@@ -21,21 +21,24 @@ function AddUsersPopup({ availableUsers, onClose, onAddUsers }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">Add Users to Group</h3>
+        <h3 className="text-lg font-semibold mb-4">Add Members</h3>
         
         <div className="mb-4">
           {availableUsers.length > 0 ? availableUsers.map(user => (
             <label key={user.id} className="flex items-center mb-2">
+              <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-xs">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              {user.username || user.email}
               <input
                 type="checkbox"
                 checked={selectedUsers.includes(user.id)}
                 onChange={() => handleUserToggle(user.id)}
-                className="mr-2"
+                className="ml-2"
               />
-              {user.username || user.email}
             </label>
           )) : (
-            <p className="text-gray-500">No users available to add</p>
+            <p className="text-gray-500">No member available to add</p>
           )}
         </div>
         

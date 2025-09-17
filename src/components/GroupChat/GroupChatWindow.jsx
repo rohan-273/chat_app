@@ -4,6 +4,7 @@ import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
+import { MoreVertical } from "lucide-react";
 
 const TEST_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -226,10 +227,10 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         <div>
           <h3 className="font-semibold">{activeChat.group.name}</h3>
           <p className="text-sm text-gray-500">
-            {activeChat.group.members
-              .sort((a, b) => a.id === user.id ? -1 : b.id === user.id ? 1 : 0)
-              .map(m => `${m.username || m.email}${m.id === user.id ? ' (You)' : ''}`)
-              .join(', ')}
+            {(() => {
+              const onlineCount = activeChat?.group?.members?.filter(m => m.online)?.length || 0;
+              return `(${onlineCount} online)`;
+            })()}
           </p>
         </div>
         <div className="relative" ref={dropdownRef}>
@@ -237,7 +238,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
             onClick={() => setShowDropdown(!showDropdown)}
             className="text-gray-500 hover:text-gray-700 p-2 text-lg font-bold"
           >
-            ⋮
+            <MoreVertical className="w-5 h-5 text-gray-600" />
           </button>
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
