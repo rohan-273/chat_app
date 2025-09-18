@@ -1,5 +1,6 @@
 import PersonalChatWindow from './PersonalChat/PersonalChatWindow';
 import GroupChatWindow from './GroupChat/GroupChatWindow';
+import ProfileView from './ProfileView';
 
 const LABELS = {
   WELCOME_TITLE: "Welcome to Chat App",
@@ -9,7 +10,7 @@ const LABELS = {
   SEND: "Send",
 };
 
-function ChatWindow({ user, activeChat, users, allMessages, setMessageCounts, setGroupMessageCounts }) {
+function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessageCounts }) {
 
   if (!activeChat) {
     return (
@@ -24,14 +25,18 @@ function ChatWindow({ user, activeChat, users, allMessages, setMessageCounts, se
 
   return (
     <div className="flex-1 flex flex-col relative">
-      {activeChat.type === "personal" ? (
+      {activeChat?.type === "profile" && (
+        <ProfileView user={activeChat.user} />
+      )}
+      {activeChat.type === "personal" && (
         <PersonalChatWindow 
           user={user} 
           activeChat={activeChat} 
           users={users}
           setMessageCounts={setMessageCounts}
         />
-      ) : (
+      )}
+      {activeChat.type === "group" && (
         <GroupChatWindow 
           user={user} 
           activeChat={activeChat} 

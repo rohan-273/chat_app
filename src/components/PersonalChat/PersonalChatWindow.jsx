@@ -3,7 +3,7 @@ import { encryptMessage, decryptMessage } from '../../utils/encryption';
 import { useChatWindow, useClickOutside, useMessageSearch } from '../../hooks/useChatWindow';
 import SearchBar from '../../common/SearchBar';
 import MessageInput from '../../common/MessageInput';
-import { MoreVertical } from "lucide-react";
+import { Eraser, MoreVertical, Search } from "lucide-react";
 
 const TEST_ENCRYPTION_KEY = 'test-key-1234567890abcdef12345678';
 
@@ -274,15 +274,15 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
                     setShowSearch(true);
                     setTimeout(() => searchInputRef.current?.focus(), 100);
                   }}
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                 >
-                  Search Messages
+                  <Search className="w-4 h-4 mr-2" /> Search Messages
                 </button>
                 <button
                   onClick={handleClearChat}
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                  className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 text-sm"
                 >
-                  Clear Chat
+                  <Eraser className="w-4 h-4 mr-2" /> Clear Chat
                 </button>
               </div>
             )}
@@ -326,32 +326,31 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
             }`}
           >
             <div
-              className={`group relative px-3 py-2 rounded-lg ${
-                (msg.sender?.id || msg.sender) === user.id
-                  ? "bg-green-500 text-white"
-                  : "bg-white border"
-              }`}
-              style={{ maxWidth: '75%', minWidth: '80px' }}
+              className={`group relative px-3 py-2
+                ${(msg.sender?.id || msg.sender) === user.id
+                  ? "bg-green-500 text-white rounded-2xl rounded-tr-sm"
+                  : "bg-white border rounded-2xl rounded-tl-sm"
+                }`}
+              style={{ maxWidth: "75%", minWidth: "80px" }}
             >
-              <div style={{ whiteSpace: 'pre-wrap' }}>
+              <div style={{ whiteSpace: "pre-wrap" }}>
                 {(() => {
                   const decrypted = decryptMessage(msg.content || msg.message, encryptionKey);
                   return decrypted;
                 })()}
               </div>
               <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
-                <span>{new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                <span>
+                  {new Date(msg.createdAt || msg.timestamp).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
                 {(msg.sender?.id || msg.sender) === user.id && !msg.isDeleted && (
                   <div className="ml-2">
-                    {(!msg.status || msg.status === 'sent') && (
-                      <span className="text-white">✓</span>
-                    )}
-                    {msg.status === 'delivered' && (
-                      <span className="text-white">✓✓</span>
-                    )}
-                    {msg.status === 'read' && (
-                      <span className="text-blue-800">✓✓</span>
-                    )}
+                    {(!msg.status || msg.status === "sent") && <span className="text-white">✓</span>}
+                    {msg.status === "delivered" && <span className="text-white">✓✓</span>}
+                    {msg.status === "read" && <span className="text-blue-800">✓✓</span>}
                   </div>
                 )}
               </div>
@@ -390,6 +389,7 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
         showEmojiPicker={showEmojiPicker}
         setShowEmojiPicker={setShowEmojiPicker}
         emojiPickerRef={emojiPickerRef}
+        activeChat={activeChat}
       />
 
       {showDeleteModal && deleteTarget && (

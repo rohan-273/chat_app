@@ -231,7 +231,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
             <UsersRound className="w-4 h-4 text-gray-700" />
           </div>
           <div className="flex flex-col">
-            <h3 className="font-semibold">{activeChat.group.name}</h3>
+            <h3 className="font-semibold">{activeChat?.group?.name}</h3>
             <p className="text-sm text-gray-500">
               {(() => {
                 const onlineCount = activeChat?.group?.members?.filter(m => m.online)?.length || 0;
@@ -249,13 +249,13 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
           </button>
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
-              <button onClick={() => { setShowDropdown(false); setShowGroupInfo(true); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100">
+              <button onClick={() => { setShowDropdown(false); setShowGroupInfo(true); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
                 <Info className="w-4 h-4 mr-2" /> Group Info
               </button>
-              <button onClick={() => { setShowDropdown(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 100); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100">
+              <button onClick={() => { setShowDropdown(false); setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 100); }} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm">
                 <Search className="w-4 h-4 mr-2" /> Search Messages
               </button>
-              <button onClick={handleClearChat} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600">
+              <button onClick={handleClearChat} className="flex items-center block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 text-sm">
                 <Eraser className="w-4 h-4 mr-2" /> Clear Chat
               </button>
               <button
@@ -269,7 +269,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
                   setShowDropdown(false);
                   setShowConfirmModal(true);
                 }}
-                className="flex items-center block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100"
+                className="flex items-center block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 text-sm"
               >
                 {activeChat.group.createdBy === user.id ? (
                   <>
@@ -353,39 +353,97 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         {messages.map((msg, i) => {
           const senderId = msg.sender?.id || msg.sender;
           const isUser = senderId === user.id;
+          const senderUser = users.find(u => u.id === senderId);
+
           return (
-            <div key={msg.id || i} data-message-id={msg._id || msg.id} className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`group relative px-3 py-2 rounded-lg ${isUser ? 'bg-green-500 text-white' : 'bg-white border'}`} style={{ maxWidth: '75%', minWidth: '80px' }}>
+            <div
+              key={msg.id || i}
+              data-message-id={msg._id || msg.id}
+              className={`mb-3 flex ${isUser ? "justify-end" : "justify-start"}`}
+            >
+              {!isUser && (
+                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2 flex items-center justify-center text-sm">
+                  {senderUser?.username?.charAt(0).toUpperCase() || "?"}
+                </div>
+              )}
+
+              <div
+                className={`group relative px-3 py-2
+                  ${isUser
+                    ? "bg-green-500 text-white rounded-2xl rounded-tr-sm"
+                    : "bg-white border rounded-2xl rounded-tl-sm"
+                  }`}
+                style={{ maxWidth: "75%", minWidth: "80px" }}
+              >
                 {!isUser && (
                   <div className="text-xs font-medium mb-1 opacity-70">
-                    {users.find(u => u.id === senderId)?.username || users.find(u => u.id === senderId)?.email || 'Unknown User'}
+                    {senderUser?.username || senderUser?.email || "Unknown User"}
                   </div>
                 )}
-                <div style={{ whiteSpace: 'pre-wrap' }}>{decryptMessage(msg.content || msg.message, key)}</div>
+
+                <div style={{ whiteSpace: "pre-wrap" }}>{decryptMessage(msg.content || msg.message, key)}</div>
+
                 <div className="text-xs opacity-70 mt-1 flex items-center justify-between">
-                  <span>{new Date(msg.updatedAt || msg.createdAt || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>
+                    {new Date(
+                      msg.updatedAt || msg.createdAt || msg.timestamp
+                    ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+
                   {isUser && (
                     <div className="ml-2">
                       {(() => {
                         const statusData = msg.statusData || {};
                         const recipients = Object.keys(statusData).filter(id => id !== senderId);
-                        const display = recipients.length > 0 && recipients.every(id => statusData[id]?.status === 'read') ? 'read'
-                          : recipients.length > 0 && recipients.every(id => ['read', 'delivered'].includes(statusData[id]?.status)) ? 'delivered'
-                          : msg.status || 'sent';
-                        return <span className={display === 'read' ? 'text-blue-600' : 'text-white'} title={display === 'read' ? 'Read by all' : display === 'delivered' ? 'Delivered to all' : 'Sent'}>✓✓</span>;
+                        const display =
+                          recipients.length > 0 &&
+                          recipients.every(id => statusData[id]?.status === "read")
+                            ? "read"
+                            : recipients.length > 0 &&
+                              recipients.every(id =>
+                                ["read", "delivered"].includes(statusData[id]?.status)
+                              )
+                            ? "delivered"
+                            : msg.status || "sent";
+
+                        return (
+                          <span
+                            className={
+                              display === "read" ? "text-blue-600" : "text-white"
+                            }
+                            title={
+                              display === "read"
+                                ? "Read by all"
+                                : display === "delivered"
+                                ? "Delivered to all"
+                                : "Sent"
+                            }
+                          >
+                            ✓✓
+                          </span>
+                        );
                       })()}
                     </div>
                   )}
                 </div>
+
                 {(isUser || (activeChat.group.createdBy === user.id && !isUser)) && (
                   <button
                     type="button"
                     aria-label="Delete message"
                     title="Delete message"
                     className="absolute top-1 right-1 hidden group-hover:flex items-center justify-center w-7 h-7 rounded-full bg-black/10 hover:bg-black/20 text-white transition shadow-sm"
-                    onClick={() => { setDeleteTarget(msg); setShowDeleteModal(true); }}
+                    onClick={() => {
+                      setDeleteTarget(msg);
+                      setShowDeleteModal(true);
+                    }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4"
+                    >
                       <path d="M9 3a1 1 0 0 0-1 1v1H5.5a1 1 0 1 0 0 2H6v11a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7h.5a1 1 0 1 0 0-2H16V4a1 1 0 0 0-1-1H9zm2 2h2v1h-2V5zm-2 4a1 1 0 1 1 2 0v8a1 1 0 1 1-2 0V9zm6-1a1 1 0 0 1 1 1v8a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1z" />
                     </svg>
                   </button>
@@ -420,6 +478,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
         showEmojiPicker={showEmojiPicker}
         setShowEmojiPicker={setShowEmojiPicker}
         emojiPickerRef={emojiPickerRef}
+        activeChat={activeChat}
       />
 
       {showDeleteModal && deleteTarget && (

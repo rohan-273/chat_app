@@ -65,6 +65,7 @@ function Sidebar({
               <div className="absolute right-0 mt-2 bg-white shadow-md rounded-md w-40 border border-gray-200 z-50">
                 <button
                   onClick={() => {
+                    setActiveChat({ type: "profile", user });
                     setMenuOpen(false);
                   }}
                   className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-sm"
