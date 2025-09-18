@@ -176,7 +176,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       }));
     });
 
-    socket.on('group:chat:clear', () => {
+    socket.on('group:chatCleared', () => {
       setMessages([]);
       setPage(1);
       setHasMore(false);
@@ -189,7 +189,7 @@ function GroupChatWindow({ user, activeChat, users, setGroupMessageCounts }) {
       socket.off('group:message:delete', removeGroupMessageById);
       socket.off('group:messageDeleted', removeGroupMessageById);
       socket.off('group:messageHidden', removeGroupMessageById);
-      socket.off('group:chat:clear');
+      socket.off('group:chatCleared');
     };
   }, [activeChat, user.id]);
 

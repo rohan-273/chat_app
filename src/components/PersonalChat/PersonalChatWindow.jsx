@@ -165,10 +165,7 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
 
         if ((msg.sender?.id || msg.sender) === activeChat.user.id && (msg.recipient?.id || msg.recipient) === user.id) {
           socket.emit('message:delivered', { messageId: msg._id });
-          socket.emit('message:read', { messageId: msg._id });
-          if (setMessageCounts) {
-            setMessageCounts(prev => ({ ...prev, [activeChat.user.id]: 0 }));
-          }
+          socket.emit('message:read', { messageId: msg._id });        
         }
       }
     });
@@ -179,12 +176,13 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
       }
     });
     socket.on("message:status", (data) => {
-      setMessages((prev) =>
+      setMessages(prev =>
         prev.map(msg =>
           msg._id === data.messageId ? { ...msg, status: data.status } : msg
         )
       );
     });
+    
     const removeByMessageId = (data) => {
       const targetId = (data?.messageId ?? data?._id ?? data?.id ?? data?.message?._id ?? data?.message?.id);
       if (!targetId) return;
@@ -196,8 +194,9 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
 
     socket.on("message:delete", removeByMessageId);
     socket.on("message:deleted", removeByMessageId);
+    socket.on("message:hidden", removeByMessageId);
     
-    socket.on("chat:clear", () => {
+    socket.on("chat:cleared", () => {
       setMessages([]);
       setPage(1);
       setHasMore(false);
@@ -210,7 +209,8 @@ function PersonalChatWindow({ user, activeChat, setMessageCounts }) {
       socket?.off("message:status");
       socket?.off("message:delete", removeByMessageId);
       socket?.off("message:deleted", removeByMessageId);
-      socket?.off("chat:clear");
+      socket?.off("message:hidden", removeByMessageId);
+      socket?.off("chat:cleared");
     };
   }, [activeChat, user.id]);
 

@@ -53,26 +53,39 @@ function ChatApp({ user, onLogout }) {
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/users/${user.id}`, { headers });
         const newGroups = res.data.data.groups || [];
         setGroups(newGroups);
-        if (activeChat?.type === "group" && activeChat.group.id === (data.groupId || data.id)) {
-          if (["group:deleted", "group:removed", "group:left"].includes(event)) {
-            setActiveChat(null);
-          } else {
-            const updatedGroup = newGroups.find(g => g.id === (data.groupId || data.id));
-            if (updatedGroup) setActiveChat({ type: "group", group: updatedGroup });
+        const groupId = data.groupId || data.id;
+    
+        if (activeChat?.type === "group" && activeChat.group.id === groupId) {
+          if (["group:deleted", "group:removed", "group:left", "group:memberRemoved", "group:memberLeft"].includes(event)) {
+            const stillInGroup = newGroups.some(g => g.id === groupId);
+            if (!stillInGroup) {
+              setActiveChat(null);
+              return;
+            }
+          }
+    
+          const updatedGroup = newGroups.find(g => g.id === groupId);
+          if (updatedGroup) {
+            setActiveChat({ type: "group", group: updatedGroup });
           }
         }
       } catch (e) {
-        console.error("Failed to fetch updated groups:", e);
-        if (["group:deleted", "group:removed", "group:left"].includes(event)) {
-          setGroups(prev => prev.filter(g => g.id !== data.groupId));
-          if (activeChat?.type === "group" && activeChat.group.id === data.groupId) setActiveChat(null);
+        const groupId = data.groupId || data.id;
+    
+        if (["group:deleted", "group:removed", "group:left", "group:memberRemoved", "group:memberLeft"].includes(event)) {
+          setGroups(prev => prev.filter(g => g.id !== groupId));
+          if (activeChat?.type === "group" && activeChat.group.id === groupId) {
+            setActiveChat(null);
+          }
         } else if (event === "group:membersUpdated") {
-          setGroups(prev => prev.map(g => g.id === data.id ? data : g));
-          if (activeChat?.type === "group" && activeChat.group.id === data.id) setActiveChat({ type: "group", group: data });
+          setGroups(prev => prev.map(g => g.id === groupId ? data : g));
+          if (activeChat?.type === "group" && activeChat.group.id === groupId) {
+            setActiveChat({ type: "group", group: data });
+          }
         }
       }
     };
-
+    
     s.on("group:deleted", data => handleGroupUpdate("group:deleted", data));
     s.on("group:removed", data => handleGroupUpdate("group:removed", data));
     s.on("group:left", data => handleGroupUpdate("group:left", data));
@@ -228,6 +241,15 @@ function ChatApp({ user, onLogout }) {
       if (data?.forEveryone) handlePersonalDelete(data);
     });
     
+    s.on("message:hidden", (data) => {
+      const messageId = data?.messageId || data?._id || data?.id;
+      if (!messageId) return;
+    
+      setAllMessages(prevAll =>
+        prevAll.filter(m => (m?._id || m?.id) !== messageId)
+      );
+    });
+
     const handleGroupDelete = (data) => {
       const groupId = data?.groupId || data?.group || data?.group_id;
       if (!groupId) return;
@@ -244,6 +266,69 @@ function ChatApp({ user, onLogout }) {
       if (data?.forEveryone) handleGroupDelete(data);
     });
 
+    s.on("message:status", (data) => {
+      setAllMessages(prev =>
+        prev.map(msg =>
+          msg._id === data.messageId ? { ...msg, status: data.status } : msg
+        )
+      );
+    
+      if (data.status === "read") {
+        const senderId = data.sender?.id || data.sender;
+        const recipientId = data.recipient?.id || data.recipient;
+        const otherUserId = senderId === user.id ? recipientId : senderId;
+    
+        if (otherUserId) {
+          setMessageCounts(prev => ({
+            ...prev,
+            [otherUserId]: 0,
+          }));
+        }
+      }
+    });
+
+    s.on("group:status", (data) => {
+      const { groupId, messageId, status, updatedAt } = data;
+      setAllMessages((prev) =>
+        prev.map((msg) => {
+          if (msg._id !== messageId) return msg;
+    
+          const statusData = {
+            ...msg.statusData,
+            ...status,
+          };
+          const recipients = Object.keys(statusData).filter(
+            (id) => id !== (msg.sender?.id || msg.sender)
+          );
+          const allRead =
+            recipients.length > 0 &&
+            recipients.every((id) => statusData[id]?.status === "read");
+          const allDelivered =
+            recipients.length > 0 &&
+            recipients.every((id) =>
+              ["read", "delivered"].includes(statusData[id]?.status)
+            );
+    
+          return {
+            ...msg,
+            statusData,
+            status: allRead ? "read" : allDelivered ? "delivered" : "sent",
+            updatedAt: updatedAt || msg.updatedAt,
+          };
+        })
+      );
+
+      const currentUserId = user.id;
+      const currentUserStatus = status?.[currentUserId];
+  
+      if (currentUserStatus?.status === "read") {
+        setGroupMessageCounts((prev) => ({
+          ...prev,
+          [groupId]: 0,
+        }));
+      }
+    });
+        
     return () => {
       s.off("user:status");
       s.off("group:created");
@@ -265,6 +350,9 @@ function ChatApp({ user, onLogout }) {
       s.off("message:delete");
       s.off('group:messageDeleted');
       s.off('group:message:delete');
+      s.off("message:status");
+      s.off("message:hidden");
+      s.off("group:status");
     };
   }, [user.socket, user.id, activeChat]);
 
