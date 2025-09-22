@@ -10,7 +10,16 @@ const LABELS = {
   SEND: "Send",
 };
 
-function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessageCounts, socket }) {
+export default function ChatWindow({ 
+  user, 
+  activeChat, 
+  users, 
+  setMessageCounts, 
+  setGroupMessageCounts, 
+  socket,
+  onUserUpdate,
+  onUsersUpdate
+}) {
 
   if (!activeChat) {
     return (
@@ -26,7 +35,30 @@ function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessage
   return (
     <div className="flex-1 flex flex-col relative">
       {activeChat?.type === "profile" && (
-        <ProfileView user={user} socket={socket} />
+        <ProfileView 
+          user={user} 
+          socket={socket}
+          onProfileUpdated={(updatedUser) => {
+            if (onUserUpdate) {
+              onUserUpdate(updatedUser);
+            }
+            
+            if (onUsersUpdate) {
+              onUsersUpdate(prevUsers => 
+                prevUsers.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u)
+              );
+            }
+            
+            try {
+              localStorage.setItem('userData', JSON.stringify(updatedUser));
+              if (updatedUser.username) {
+                localStorage.setItem('username', updatedUser.username);
+              }
+            } catch (e) {
+              console.error('Error updating local storage:', e);
+            }
+          }} 
+        />
       )}
       {activeChat.type === "personal" && (
         <PersonalChatWindow 
@@ -47,5 +79,3 @@ function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessage
     </div>
   );
 }
-
-export default ChatWindow;

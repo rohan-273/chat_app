@@ -17,7 +17,7 @@ const profileSchema = yup.object().shape({
   email: yup.string().email("Invalid email").required("Email is required"),
 });
 
-function ProfileView({ user, socket }) {
+function ProfileView({ user, socket, onProfileUpdated }) {
   const {
     register,
     reset,
@@ -51,14 +51,19 @@ function ProfileView({ user, socket }) {
     if (!socket) return;
   
     const handleProfileUpdated = (updatedUser) => {
-      reset({
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        username: updatedUser.username,
-        email: updatedUser.email,
-      }, { keepDirty: false });
-  
-      toast.success("Profile updated successfully");
+      if (updatedUser.id === user?.id) {
+        reset({
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          username: updatedUser.username,
+          email: updatedUser.email,
+        }, { keepDirty: false });
+        
+        if (onProfileUpdated) {
+          onProfileUpdated(updatedUser);
+        }        
+        toast.success("Profile updated successfully");
+      }
     };
   
     socket.on('user:profileUpdated', handleProfileUpdated);
@@ -66,39 +71,32 @@ function ProfileView({ user, socket }) {
     return () => {
       socket.off('user:profileUpdated', handleProfileUpdated);
     };
-  }, [socket, reset]);
+  }, [socket, reset, user?.id, onProfileUpdated]);
   
 
   const onSubmit = async (data) => {
     try {
-      if (!socket) {
-        throw new Error("Socket connection not available");
-      }      
-      
-      const updatedUser = {
-        ...data,
+      if (!socket) throw new Error("Socket connection not available");
+  
+      const updatedUser = { 
+        ...data, 
         id: user.id,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        username: data.username,
-        email: data.email
+        profilePicture: user.profilePicture,
+        online: user.online,
+        lastSeen: user.lastSeen
       };
-      
+  
       socket.emit('user:updateProfile', updatedUser, (response) => {
         if (!response?.success) {
-          reset({
-            firstName: user.firstName,
-            lastName: user.lastName,
-            username: user.username,
-            email: user.email
-          });
+          reset({ ...user });
           toast.error(response?.message);
         }
-      });      
+      });
     } catch (err) {
-      toast.error(err.response?.data?.message);
+      toast.error(err.response?.data?.message || err.message);
     }
   };
+  
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -137,7 +135,7 @@ function ProfileView({ user, socket }) {
       <div className="flex justify-center items-center bg-white py-10 border-b border-gray-300">
         <div className="relative">
           <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center text-4xl font-bold text-blue-600">
-            {currentUsername?.charAt(0)?.toUpperCase() || "U"}
+            {currentUsername?.charAt(0)?.toUpperCase()}
           </div>
           <button className="absolute bottom-2 right-2 bg-blue-500 text-white p-2 rounded-full shadow hover:bg-blue-600 transition">
             <Edit2 className="w-4 h-4" />
@@ -196,6 +194,7 @@ function ProfileView({ user, socket }) {
             <input
               type="email"
               {...register("email")}
+              readOnly
               className={`w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
             />
             {errors.email && (

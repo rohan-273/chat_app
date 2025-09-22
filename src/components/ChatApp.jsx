@@ -12,8 +12,12 @@ function ChatApp({ user, onLogout, onUserUpdate }) {
   const [allMessages, setAllMessages] = useState([]);
 
   useEffect(() => {
+    if (!user) return;
+    
     const s = user.socket;
     const token = localStorage.getItem("token");
+    if (!token) return;
+    
     const headers = { Authorization: `Bearer ${token}` };
 
     const fetchInitialData = async () => {
@@ -30,17 +34,48 @@ function ChatApp({ user, onLogout, onUserUpdate }) {
     };
     
     const handleProfileUpdate = (updatedUser) => {
-      if (onUserUpdate) {
-        onUserUpdate(updatedUser);
+      if (!updatedUser || !updatedUser.id) {
+        console.error('Invalid user data received:', updatedUser);
+        return;
       }
       
-      setUsers(prevUsers => 
-        prevUsers.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u)
-      );
+      setUsers(prevUsers => {
+        if (!prevUsers || !Array.isArray(prevUsers)) return [];
+        
+        const updatedUsers = prevUsers.map(u => 
+          u && u.id === updatedUser.id ? { ...u, ...updatedUser } : u
+        );
+        return updatedUsers;
+      });
+      
+      if (activeChat?.type === 'personal' && 
+          activeChat.user?.id === updatedUser.id) {
+        setActiveChat(prev => ({
+          ...prev,
+          user: { ...prev.user, ...updatedUser }
+        }));
+      }
+      
+      if (user && updatedUser.id === user.id) {
+        if (onUserUpdate) {
+          onUserUpdate(updatedUser);
+        }
+        
+        try {
+          localStorage.setItem('userData', JSON.stringify(updatedUser));
+          if (updatedUser.username) {
+            localStorage.setItem('username', updatedUser.username);
+          }
+        } catch (e) {
+          console.error('Error updating local storage:', e);
+        }
+      }
+      
+      setAllMessages(prev => [...(prev || [])]);
     };
     
-    if (s) {
-      s.on('user:profileUpdated', handleProfileUpdate);
+    if (user.socket) {
+      user.socket.on('user:profileUpdated', handleProfileUpdate);
     }
 
     fetchInitialData();
@@ -369,6 +404,7 @@ function ChatApp({ user, onLogout, onUserUpdate }) {
         s.off("message:hidden");
         s.off("group:status");
         s.off('user:profileUpdated', handleProfileUpdate);
+        s.off('user:profileUpdated', handleProfileUpdate);
       }
     };
   }, [user.socket, user.id, activeChat]);
@@ -416,6 +452,8 @@ function ChatApp({ user, onLogout, onUserUpdate }) {
         setMessageCounts={setMessageCounts}
         setGroupMessageCounts={setGroupMessageCounts}
         socket={user.socket}
+        onUserUpdate={onUserUpdate}
+        onUsersUpdate={setUsers}
       />
     </div>
   );

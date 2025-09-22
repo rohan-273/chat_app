@@ -4,9 +4,36 @@ import axios from 'axios';
 import Auth from './Auth/Auth';
 import ChatApp from './components/ChatApp';
 
+// Helper function to prepare user data for storage (removes circular references)
+const prepareUserForStorage = (userData) => {
+  if (!userData) return null;
+  
+  // Extract only the properties we want to store
+  const { id, username, email, firstName, lastName, profilePicture, online, lastSeen } = userData;
+  return {
+    id,
+    username,
+    email,
+    firstName,
+    lastName,
+    profilePicture,
+    online,
+    lastSeen
+  };
+};
+
 function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('userData');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      console.error('Error parsing user data from localStorage:', e);
+      return null;
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   const fetchUserProfile = async (token) => {
     try {
@@ -69,20 +96,37 @@ function App() {
         
         socket.emit('message:fetch', { userId });
         setIsLoading(false);
-      });
-      
-      socket.on('connect_error', () => {
-        setIsLoading(false);
-      });
+      });      
       
       socket.on('user:profileUpdated', (updatedUser) => {
-        localStorage.setItem('userData', JSON.stringify(updatedUser));
-        localStorage.setItem('username', updatedUser.username);
-        setUser(prev => ({
-          ...prev,
-          ...updatedUser,
-          socket: prev.socket
-        }));
+        try {
+          if (!updatedUser || !updatedUser.id || !user || updatedUser.id !== user.id) {
+            console.log('Skipping profile update - invalid user data or user mismatch:', { updatedUser, currentUser: user });
+            return;
+          }
+          try {
+            const userForStorage = prepareUserForStorage(updatedUser);
+            if (userForStorage) {
+              localStorage.setItem('userData', JSON.stringify(userForStorage));
+              if (userForStorage.username) {
+                localStorage.setItem('username', userForStorage.username);
+              }
+            }
+          } catch (e) {
+            console.error('Error updating local storage:', e);
+          }
+          
+          setUser(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              ...updatedUser,
+              socket: prev.socket
+            };
+          });
+        } catch (error) {
+          console.error('Error in user:profileUpdated handler:', error);
+        }
       });
       
       return () => {
@@ -116,18 +160,33 @@ function App() {
   };
 
   const handleUserUpdate = (updatedUser) => {
-    // Update the user state with the new data
-    setUser(prev => ({
-      ...prev,
-      ...updatedUser,
-      socket: prev.socket
-    }));
-    
-    // Update localStorage
-    localStorage.setItem('userData', JSON.stringify(updatedUser));
-    if (updatedUser.username) {
-      localStorage.setItem('username', updatedUser.username);
+    if (!updatedUser) {
+      console.error('Cannot update user: No user data provided');
+      return;
     }
+    
+    setUser(prev => {
+      if (!prev) return null;
+      
+      const newUser = {
+        ...prev,
+        ...updatedUser,
+        socket: prev.socket
+      };
+      
+      try {
+        const userForStorage = prepareUserForStorage(newUser);
+        if (userForStorage) {
+          localStorage.setItem('userData', JSON.stringify(userForStorage));
+          if (userForStorage.username) {
+            localStorage.setItem('username', userForStorage.username);
+          }
+        }
+      } catch (e) {
+        console.error('Error updating local storage:', e);
+      }      
+      return newUser;
+    });
   };
 
   return (
