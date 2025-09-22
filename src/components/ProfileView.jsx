@@ -17,11 +17,12 @@ const profileSchema = yup.object().shape({
   email: yup.string().email("Invalid email").required("Email is required"),
 });
 
-function ProfileView() {
+function ProfileView({ user, socket }) {
   const {
     register,
     reset,
-    formState: { isDirty, isSubmitting  },
+    handleSubmit,
+    formState: { isDirty, isSubmitting, errors },
     watch,
   } = useForm({
     resolver: yupResolver(profileSchema),
@@ -34,6 +35,70 @@ function ProfileView() {
   });
 
   const currentUsername = watch("username");
+
+  useEffect(() => {
+    if (user) {
+      reset({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        username: user.username || '',
+        email: user.email || ''
+      });
+    }
+  }, [user, reset]);
+
+  useEffect(() => {
+    if (!socket) return;
+  
+    const handleProfileUpdated = (updatedUser) => {
+      reset({
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        username: updatedUser.username,
+        email: updatedUser.email,
+      }, { keepDirty: false });
+  
+      toast.success("Profile updated successfully");
+    };
+  
+    socket.on('user:profileUpdated', handleProfileUpdated);
+  
+    return () => {
+      socket.off('user:profileUpdated', handleProfileUpdated);
+    };
+  }, [socket, reset]);
+  
+
+  const onSubmit = async (data) => {
+    try {
+      if (!socket) {
+        throw new Error("Socket connection not available");
+      }      
+      
+      const updatedUser = {
+        ...data,
+        id: user.id,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        username: data.username,
+        email: data.email
+      };
+      
+      socket.emit('user:updateProfile', updatedUser, (response) => {
+        if (!response?.success) {
+          reset({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            email: user.email
+          });
+          toast.error(response?.message);
+        }
+      });      
+    } catch (err) {
+      toast.error(err.response?.data?.message);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -60,7 +125,7 @@ function ProfileView() {
           });
         }
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed to fetch profile");
+        toast.error(err.response?.data?.message);
       }
     };
 
@@ -68,7 +133,7 @@ function ProfileView() {
   }, [reset]);
 
   return (
-    <div className="flex flex-col h-full">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
       <div className="flex justify-center items-center bg-white py-10 border-b border-gray-300">
         <div className="relative">
           <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center text-4xl font-bold text-blue-600">
@@ -89,9 +154,11 @@ function ProfileView() {
             <input
               type="text"
               {...register("firstName")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
-              readOnly
+              className={`w-full border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
             />
+            {errors.firstName && (
+              <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+            )}
           </div>
 
           <div>
@@ -101,9 +168,11 @@ function ProfileView() {
             <input
               type="text"
               {...register("lastName")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
-              readOnly
+              className={`w-full border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
             />
+            {errors.lastName && (
+              <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+            )}
           </div>
 
           <div>
@@ -113,9 +182,11 @@ function ProfileView() {
             <input
               type="text"
               {...register("username")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
-              readOnly
+              className={`w-full border ${errors.username ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
             />
+            {errors.username && (
+              <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
+            )}
           </div>
 
           <div>
@@ -125,9 +196,11 @@ function ProfileView() {
             <input
               type="email"
               {...register("email")}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
-              readOnly
+              className={`w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
             />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            )}
           </div>
         </div>
 
@@ -143,7 +216,7 @@ function ProfileView() {
           </button>
         </div>
       </div>
-    </div>
+    </form>
   );
 }
 

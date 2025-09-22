@@ -3,7 +3,7 @@ import axios from "axios";
 import Sidebar from "./Sidebar";
 import ChatWindow from "./ChatWindow";
 
-function ChatApp({ user, onLogout }) {
+function ChatApp({ user, onLogout, onUserUpdate }) {
   const [activeChat, setActiveChat] = useState(null);
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -28,6 +28,20 @@ function ChatApp({ user, onLogout }) {
         console.error("Failed to fetch initial data:", e);
       }
     };
+    
+    const handleProfileUpdate = (updatedUser) => {
+      if (onUserUpdate) {
+        onUserUpdate(updatedUser);
+      }
+      
+      setUsers(prevUsers => 
+        prevUsers.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u)
+      );
+    };
+    
+    if (s) {
+      s.on('user:profileUpdated', handleProfileUpdate);
+    }
 
     fetchInitialData();
 
@@ -330,29 +344,32 @@ function ChatApp({ user, onLogout }) {
     });
         
     return () => {
-      s.off("user:status");
-      s.off("group:created");
-      s.off("group:deleted");
-      s.off("group:removed");
-      s.off("group:memberRemoved");
-      s.off("group:memberLeft");
-      s.off("group:left");
-      s.off("group:membersUpdated");
-      s.off("group:nameUpdated");
-      s.off("message:send");
-      s.off("message:sent");
-      s.off("message:receive");
-      s.off("messages:unread-counts");
-      s.off("group:send");
-      s.off("group:receive");
-      s.off("group:unread-counts");
-      s.off("message:deleted");
-      s.off("message:delete");
-      s.off('group:messageDeleted');
-      s.off('group:message:delete');
-      s.off("message:status");
-      s.off("message:hidden");
-      s.off("group:status");
+      if (s) {
+        s.off("user:status");
+        s.off("group:created");
+        s.off("group:deleted");
+        s.off("group:removed");
+        s.off("group:memberRemoved");
+        s.off("group:memberLeft");
+        s.off("group:left");
+        s.off("group:membersUpdated");
+        s.off("group:nameUpdated");
+        s.off("message:send");
+        s.off("message:sent");
+        s.off("message:receive");
+        s.off("messages:unread-counts");
+        s.off("group:send");
+        s.off("group:receive");
+        s.off("group:unread-counts");
+        s.off("message:deleted");
+        s.off("message:delete");
+        s.off('group:messageDeleted');
+        s.off('group:message:delete');
+        s.off("message:status");
+        s.off("message:hidden");
+        s.off("group:status");
+        s.off('user:profileUpdated', handleProfileUpdate);
+      }
     };
   }, [user.socket, user.id, activeChat]);
 
@@ -398,6 +415,7 @@ function ChatApp({ user, onLogout }) {
         allMessages={allMessages}
         setMessageCounts={setMessageCounts}
         setGroupMessageCounts={setGroupMessageCounts}
+        socket={user.socket}
       />
     </div>
   );

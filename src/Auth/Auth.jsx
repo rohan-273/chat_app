@@ -27,6 +27,8 @@ function Auth({ onAuth }) {
       
       localStorage.setItem('token', token);
       localStorage.setItem('userId', user.id);
+      localStorage.setItem('username', user.username);
+      localStorage.setItem('userData', JSON.stringify(user));
       
       const socket = io('http://192.168.1.60:3001', {
         auth: { token }

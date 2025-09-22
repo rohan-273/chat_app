@@ -10,7 +10,7 @@ const LABELS = {
   SEND: "Send",
 };
 
-function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessageCounts }) {
+function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessageCounts, socket }) {
 
   if (!activeChat) {
     return (
@@ -26,7 +26,7 @@ function ChatWindow({ user, activeChat, users, setMessageCounts, setGroupMessage
   return (
     <div className="flex-1 flex flex-col relative">
       {activeChat?.type === "profile" && (
-        <ProfileView user={activeChat.user} />
+        <ProfileView user={user} socket={socket} />
       )}
       {activeChat.type === "personal" && (
         <PersonalChatWindow 
