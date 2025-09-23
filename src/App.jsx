@@ -4,11 +4,9 @@ import axios from 'axios';
 import Auth from './Auth/Auth';
 import ChatApp from './components/ChatApp';
 
-// Helper function to prepare user data for storage (removes circular references)
 const prepareUserForStorage = (userData) => {
   if (!userData) return null;
   
-  // Extract only the properties we want to store
   const { id, username, email, firstName, lastName, profilePicture, online, lastSeen } = userData;
   return {
     id,
@@ -33,7 +31,6 @@ function App() {
     }
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [forceUpdate, setForceUpdate] = useState(0);
 
   const fetchUserProfile = async (token) => {
     try {
@@ -86,7 +83,7 @@ function App() {
           });
         } else {
           setUser({ 
-            username: localStorage.getItem('username') || 'User',
+            username: localStorage.getItem('username'),
             token, 
             id: userId,
             socket,

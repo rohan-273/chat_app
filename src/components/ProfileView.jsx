@@ -152,7 +152,7 @@ function ProfileView({ user, socket, onProfileUpdated }) {
             <input
               type="text"
               {...register("firstName")}
-              className={`w-full border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
+              className={`w-full border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-white text-gray-700`}
             />
             {errors.firstName && (
               <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
@@ -166,7 +166,7 @@ function ProfileView({ user, socket, onProfileUpdated }) {
             <input
               type="text"
               {...register("lastName")}
-              className={`w-full border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
+              className={`w-full border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-white text-gray-700`}
             />
             {errors.lastName && (
               <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
@@ -180,7 +180,7 @@ function ProfileView({ user, socket, onProfileUpdated }) {
             <input
               type="text"
               {...register("username")}
-              className={`w-full border ${errors.username ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-gray-100 text-gray-700`}
+              className={`w-full border ${errors.username ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 bg-white text-gray-700`}
             />
             {errors.username && (
               <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
